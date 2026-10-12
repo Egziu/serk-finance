@@ -15,6 +15,24 @@ export function PeriodsPage({ reference, company, csrf, onClosed, refreshReferen
     [done, setDone] = useState("");
   const [pending, setPending] = useState<{ id: string; version: number; reason: string; key: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [reopen, setReopen] = useState<Period | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
+  async function requestReopen() {
+    if (!reopen) return;
+    setBusy(true);
+    setError("");
+    setDone("");
+    try {
+      await api("/accounting/period-reopenings/request", company, { method: "POST", csrf, key: crypto.randomUUID(), body: { period_id: reopen.id, reason: reopenReason } });
+      setDone(`Reopen of ${reopen.name} requested. A second person approves it under Year-end & reopen.`);
+      setReopen(null);
+      setReopenReason("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
   const name = (id: string) => reference?.periods.find((p) => p.id === id)?.name ?? "";
   async function review(id: string) {
     setBusy(true);
@@ -70,6 +88,10 @@ export function PeriodsPage({ reference, company, csrf, onClosed, refreshReferen
           <button className="secondary compact" disabled={busy || !!pending} onClick={() => void review(p.row.id)} aria-label={`Review close ${p.row.name}`}>
             Review close
           </button>
+        ) : reference?.permissions.close && p.row.state === "CLOSED" ? (
+          <button className="secondary compact" disabled={busy} onClick={() => { setReopen(p.row); setReopenReason(""); }} aria-label={`Request reopen ${p.row.name}`}>
+            Request reopen
+          </button>
         ) : null,
     },
   ];
@@ -79,7 +101,7 @@ export function PeriodsPage({ reference, company, csrf, onClosed, refreshReferen
         <div>
           <div className="eyebrow">ACCOUNTING CALENDAR</div>
           <h1>Fiscal periods</h1>
-          <p>Finish or void all draft, submitted and approved journals before closing. Closed periods cannot accept postings.</p>
+          <p>Finish or void all draft, submitted and approved journals before closing. Closed periods cannot accept postings; a closed period can be reopened for adjusting entries with a second person's approval.</p>
         </div>
         <div className="toolbar">
           <button className="btn-primary" onClick={() => setShowForm(true)}>+ New fiscal year</button>
@@ -104,6 +126,22 @@ export function PeriodsPage({ reference, company, csrf, onClosed, refreshReferen
         initialState={{ sorting: { sortModel: [{ field: "start_date", sort: "asc" }] } }}
         fileName="fiscal-periods"
       />
+      {reopen && (
+        <section className="panel" aria-label="Request period reopen">
+          <div className="panel-heading"><h2>Request reopen · {reopen.name}</h2></div>
+          <div className="detail-footer">
+            <div>
+              <p>Use this for adjusting events (IAS 10) or auditor corrections. The period stays closed until another person approves the request.</p>
+              <label>
+                Reason
+                <input aria-label="Reopen reason" value={reopenReason} maxLength={1000} onChange={(e) => setReopenReason(e.target.value)} />
+              </label>
+              <button className="primary" disabled={busy || reopenReason.trim().length < 3} onClick={() => void requestReopen()}>Request reopen</button>
+              <button className="secondary" disabled={busy} onClick={() => setReopen(null)}>Cancel</button>
+            </div>
+          </div>
+        </section>
+      )}
       {preview && (
         <section className="panel">
           <div className="panel-heading">
@@ -118,7 +156,7 @@ export function PeriodsPage({ reference, company, csrf, onClosed, refreshReferen
                 <p role="alert">Close is blocked. Finish or void these journals, then review again.</p>
               ) : (
                 <>
-                  <p>Closing is final in this release. Check reconciliation and supporting records before confirming.</p>
+                  <p>Check reconciliations and supporting records before confirming. Reopening later needs a second person's approval.</p>
                   <label>
                     Close reason
                     <input value={reason} disabled={!!pending || busy} maxLength={1000} onChange={(e) => setReason(e.target.value)} />

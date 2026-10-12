@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Plus,
@@ -7,7 +7,7 @@ import {
   AlertCircle,
   ChevronRight,
 } from "lucide-react";
-import { minor, money } from "./api";
+import { api, minor, money } from "./api";
 import type { Reference } from "./types";
 import { Badge, today } from "./shared";
 type DraftLine = {
@@ -24,7 +24,9 @@ export function JournalForm({
   locked,
   onSave,
   onCancel,
+  company,
 }: {
+  company?: string;
   reference: Reference;
   currency: string;
   busy: boolean;
@@ -38,7 +40,24 @@ export function JournalForm({
     [reason, setReason] = useState(""),
     [curr, setCurr] = useState(currency),
     [rate, setRate] = useState("1"),
+    [recorded, setRecorded] = useState<string | null>(null),
     [error, setError] = useState("");
+  // Foreign-currency journals are checked against the recorded rate for their date (IAS 21),
+  // so the form starts from that rate and says when none is recorded.
+  useEffect(() => {
+    if (!company || curr === currency) return;
+    let live = true;
+    api<{ rate: string | null }>(`/exchange-rates/recorded?currency=${curr}&date=${date}`, company)
+      .then((r) => {
+        if (!live) return;
+        setRecorded(r.rate);
+        if (r.rate) setRate(r.rate);
+      })
+      .catch(() => live && setRecorded(null));
+    return () => {
+      live = false;
+    };
+  }, [company, curr, date, currency]);
   const blank = (): DraftLine => ({
     account_id: "",
     description: "",
@@ -164,9 +183,13 @@ export function JournalForm({
                   Rate · {currency} per {curr}
                   <input
                     required
+                    aria-label={`Rate · ${currency} per ${curr}`}
                     value={rate}
                     onChange={(e) => setRate(e.target.value)}
                   />
+                  <small className="muted">
+                    {recorded ? `Recorded rate for ${date}: ${recorded}` : `No ${curr} rate is recorded on or before ${date}. Add one under Currencies & Rates.`}
+                  </small>
                 </label>
               )}
               <label className="full">

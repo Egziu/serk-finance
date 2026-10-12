@@ -116,13 +116,7 @@ export function TaxesPage({ company, csrf, currencyPlaces=2, currency="ETB" }: P
         </div>
       )}
 
-      <div style={{ marginBottom: 32, padding: 24, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 16, color: 'var(--text-muted)' }}>Current Tax Liability</h2>
-        <div style={{ fontSize: 32, fontWeight: 600, color: 'var(--text)' }}>
-          {currency} {money(liability,currencyPlaces)}
-        </div>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>This is the total net balance of the Sales Tax Payable ledger account.</p>
-      </div>
+      <VatReport company={company} currency={currency} places={currencyPlaces} allTime={liability} />
 
       {isCreatingAgency && (
         <div className="overlay">
@@ -190,5 +184,78 @@ export function TaxesPage({ company, csrf, currencyPlaces=2, currency="ETB" }: P
         autoHeight
       />
     </>
+  );
+}
+
+type VatReportData = {
+  from: string | null; to: string; output_tax_minor: string; input_tax_minor: string; net_tax_payable_minor: string;
+  ledger_output_tax_movement_minor: string; ledger_input_tax_movement_minor: string;
+  rates: { tax_rate_id: string; code: string; name: string; rate_percent: string; sales_taxable_minor: string; output_tax_minor: string; purchases_taxable_minor: string; input_tax_minor: string }[];
+};
+function monthStart() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+// VAT return figures for a date range, from posted documents (reversals reduce the original box),
+// with the ledger movement on the mapped VAT accounts for reconciliation.
+function VatReport({ company, currency, places, allTime }: { company: string; currency: string; places: number; allTime: string }) {
+  const [from, setFrom] = useState(monthStart());
+  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState<VatReportData | null>(null);
+  const [error, setError] = useState("");
+  async function run() {
+    setError("");
+    try {
+      setData(await api<VatReportData>(`/taxes/report?from=${from}&to=${to}`, company));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Report failed");
+    }
+  }
+  useEffect(() => {
+    void run();
+  }, [company]);
+  return (
+    <section className="panel" aria-label="VAT report">
+      <div className="panel-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2>VAT report</h2>
+          <p className="muted">Net tax payable since the beginning: {currency} {money(allTime, places)}</p>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+          <label className="muted">From<input type="date" aria-label="VAT report from" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label className="muted">To<input type="date" aria-label="VAT report to" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <button className="primary compact" onClick={() => void run()}>Run report</button>
+        </div>
+      </div>
+      {error && <div className="error" role="alert">{error}</div>}
+      {data && (
+        <div className="table-wrap">
+          <table className="simple-table">
+            <thead><tr><th>Rate</th><th className="num">Taxable sales</th><th className="num">Output VAT</th><th className="num">Taxable purchases</th><th className="num">Input VAT</th></tr></thead>
+            <tbody>
+              {data.rates.length === 0 && <tr><td colSpan={5} className="muted">No taxed documents in this range.</td></tr>}
+              {data.rates.map((r) => (
+                <tr key={r.tax_rate_id}>
+                  <td>{r.code} · {r.rate_percent}%</td>
+                  <td className="num">{money(r.sales_taxable_minor, places)}</td>
+                  <td className="num">{money(r.output_tax_minor, places)}</td>
+                  <td className="num">{money(r.purchases_taxable_minor, places)}</td>
+                  <td className="num">{money(r.input_tax_minor, places)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td><strong>Net VAT payable</strong></td>
+                <td /><td className="num"><strong>{money(data.output_tax_minor, places)}</strong></td><td />
+                <td className="num"><strong>{money(data.input_tax_minor, places)}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="muted panel-note">
+            Payable for the range: <strong>{currency} {money(data.net_tax_payable_minor, places)}</strong>. Ledger movement on the VAT accounts in the same range: output{" "}
+            {money(data.ledger_output_tax_movement_minor, places)}, input {money(data.ledger_input_tax_movement_minor, places)} (includes remittances recorded as adjustments).
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

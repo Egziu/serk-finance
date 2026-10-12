@@ -31,11 +31,16 @@ try{
  await expect(page.getByText(/MUI X Missing license key/)).toHaveCount(0);
  await page.getByRole('button',{name:'Show details'}).first().click();await expect(page.getByRole('dialog',{name:'Record details'})).toContainText('Event hash');await expect(page.getByRole('button',{name:'Close details',exact:true})).toBeInViewport({ratio:1});await page.waitForTimeout(400);await screenshot('06b-audit-evidence');await page.getByRole('button',{name:'Close details',exact:true}).click();
 
+ // Foreign-currency journals need a recorded rate (IAS 21): an administrator records it first.
+ await page.getByRole('button',{name:'Open profile for approver',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'Sign out',exact:true}).click();await signIn(cfg.users[2]);
+ await page.getByRole('button',{name:'Currencies & Rates',exact:true}).click();await page.getByRole('button',{name:'+ Add Daily Rate',exact:true}).click();
+ const rateDialog=page.getByRole('dialog',{name:'New exchange rate'});await rateDialog.getByLabel('Rate date',{exact:true}).fill('2026-09-15');await rateDialog.getByLabel('Foreign currency',{exact:true}).selectOption('USD');
+ await rateDialog.getByLabel('Rate · ETB per 1 unit',{exact:true}).fill('0.5');await rateDialog.getByRole('button',{name:'Add Rate',exact:true}).click();await expect(rateDialog).toHaveCount(0);
  // Exercise a real three-source-line FX rounding journal and close preview.
  await page.getByRole('button',{name:'Journals',exact:true}).click();
  await page.getByRole('button',{name:'New journal',exact:true}).click();
  await page.getByLabel('Accounting date',{exact:true}).fill('2026-09-15');await page.getByLabel('Description',{exact:true}).fill('FX rounding acceptance');
- await page.getByLabel('Currency',{exact:true}).selectOption('USD');await page.getByLabel('Rate · ETB per USD',{exact:true}).fill('0.5');
+ await page.getByLabel('Currency',{exact:true}).selectOption('USD');await expect(page.getByText('Recorded rate for 2026-09-15: 0.5',{exact:true})).toBeVisible();await expect(page.getByLabel('Rate · ETB per USD',{exact:true})).toHaveValue('0.5');
  await page.getByRole('button',{name:'Add line',exact:true}).click();
  for(const n of [1,2]){await page.getByLabel('Account line '+n,{exact:true}).selectOption({label:'1000 · Bank'});await page.getByLabel('Debit line '+n,{exact:true}).fill('0.01')}
  await page.getByLabel('Account line 3',{exact:true}).selectOption({label:'3000 · Capital'});await page.getByLabel('Credit line 3',{exact:true}).fill('0.02');
@@ -47,6 +52,15 @@ try{
  await page.getByRole('button',{name:'Fiscal periods',exact:true}).click();await page.getByRole('button',{name:'Review close P09',exact:true}).click();
  await page.getByLabel('Close reason',{exact:true}).fill('All synthetic journals resolved and balances checked');await page.getByRole('button',{name:'Confirm period close',exact:true}).click();
  await expect(page.getByRole('row').filter({has:page.getByText('P09',{exact:true})})).toContainText('closed');await screenshot('10-period-closed');
+ // 0.2.2 controls: reopen request, year-end preview, adjustments and VAT report.
+ await page.getByRole('button',{name:'Request reopen P09',exact:true}).click();await page.getByLabel('Reopen reason',{exact:true}).fill('Auditor adjustment for September');
+ await page.getByRole('region',{name:'Request period reopen'}).getByRole('button',{name:'Request reopen',exact:true}).click();await expect(page.getByText(/Reopen of P09 requested/)).toBeVisible();
+ await page.getByRole('button',{name:'Year-end & reopen',exact:true}).click();await expect(page.getByRole('heading',{name:'Year-end & reopening',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Approve reopen',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Void request',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Preview close FY2026',exact:true}).click();await expect(page.getByText('Close every earlier period of the year first.',{exact:true})).toBeVisible();await screenshot('14-year-end');
+ await page.getByRole('button',{name:'Adjustments',exact:true}).click();await expect(page.getByRole('heading',{name:'Adjustments & settlements',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'New adjustment',exact:true}).click();await expect(page.getByLabel('Adjustment kind',{exact:true})).toBeVisible();await screenshot('15-adjustments');
+ await page.getByRole('button',{name:'Taxes & Rates',exact:true}).click();await expect(page.getByRole('heading',{name:'VAT report',exact:true})).toBeVisible();await screenshot('16-vat-report');
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Journals',exact:true}).click();await expect(page.getByRole('heading',{name:'Journal workspace'})).toBeVisible();await screenshot('07-mobile');
  await page.getByRole('button',{name:'General ledger',exact:true}).click();await expect(page.locator('.ledger-totals')).toBeVisible();await screenshot('13-mobile-ledger');
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);if(overflow)throw new Error('Unexpected horizontal viewport overflow');

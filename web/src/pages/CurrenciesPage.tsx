@@ -7,9 +7,10 @@ import { AlertCircle } from "lucide-react";
 type Currency = { code: string; name: string; symbol: string; active: boolean };
 type ExchangeRate = { id: string; date: string; base_currency: string; foreign_currency: string; exchange_rate: string };
 
-type Props = { company: string; csrf: string };
+type Props = { company: string; csrf: string; currency?: string };
 
-export function CurrenciesPage({ company, csrf }: Props) {
+export function CurrenciesPage({ company, csrf, currency }: Props) {
+  const functional = currency ?? "ETB";
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ export function CurrenciesPage({ company, csrf }: Props) {
       setCurrencies(c);
       setExchangeRates(e);
       if (c.length > 0 && !foreignCurrency) {
-        setForeignCurrency(c.filter(cur => cur.code !== "USD")[0]?.code || c[0].code);
+        setForeignCurrency(c.filter(cur => cur.code !== functional)[0]?.code || c[0].code);
       }
     } catch (e: any) {
       setError(e.message);
@@ -88,17 +89,17 @@ export function CurrenciesPage({ company, csrf }: Props) {
 
       {isAddingRate && (
         <div className="overlay">
-          <section className="modal" role="dialog" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+          <section className="modal" role="dialog" aria-label="New exchange rate" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <h2>New Exchange Rate</h2>
             <form onSubmit={submitRate}>
-              <label>Date<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
-              <label>Foreign Currency
-                <select required value={foreignCurrency} onChange={e => setForeignCurrency(e.target.value)}>
-                  {currencies.filter(c => c.code !== "USD").map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
+              <label>Date<input aria-label="Rate date" type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
+              <label>Foreign currency
+                <select aria-label="Foreign currency" required value={foreignCurrency} onChange={e => setForeignCurrency(e.target.value)}>
+                  {currencies.filter(c => c.code !== functional).map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
                 </select>
               </label>
-              <label>Exchange Rate (How much Base Currency = 1 Foreign Currency)
-                <input type="number" step="0.0001" required value={rate} onChange={e => setRate(e.target.value)} />
+              <label>{`Rate · ${functional} per 1 unit`}
+                <input aria-label={`Rate · ${functional} per 1 unit`} type="number" step="any" min="0" required value={rate} onChange={e => setRate(e.target.value)} />
               </label>
               <div className="form-actions">
                 <button type="button" onClick={() => setIsAddingRate(false)}>Cancel</button>

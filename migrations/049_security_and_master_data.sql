@@ -253,3 +253,14 @@ BEGIN
  RETURNING attempts INTO m;
  RETURN n<=10 AND m<=50;
 END $$;
+
+-- The chart-of-accounts listing includes the statement classification.
+CREATE OR REPLACE FUNCTION ledger.list_accounts() RETURNS json LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,ledger,security,pg_temp AS $$
+ SELECT coalesce(json_agg(json_build_object(
+  'id',id,'code',code,'name',name,'type',type,'normal_balance',normal_balance,
+  'parent_id',parent_id,'active',active,'posting_allowed',posting_allowed,
+  'control_account',control_account,'reporting_category',reporting_category,'statement_class',statement_class
+ ) ORDER BY code),'[]'::json)
+ FROM ledger.accounts WHERE tenant_id=(SELECT security.tenant()) AND company_id=(SELECT security.company());
+$$;

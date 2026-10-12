@@ -162,6 +162,17 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /api/v1/payroll/payruns", s.listPayruns)
 	m.HandleFunc("POST /api/v1/payroll/payruns/{id}/{action}", s.payrunAction)
 	m.HandleFunc("GET /api/v1/payroll/policies", s.payrollPolicies)
+	// 0.2.2 period-end, adjustments and tax reporting
+	m.HandleFunc("GET /api/v1/accounting/period-end", s.listPeriodEnd)
+	m.HandleFunc("GET /api/v1/accounting/fiscal-years/{id}/close-preview", s.yearClosePreview)
+	m.HandleFunc("POST /api/v1/accounting/year-close/{action}", s.controlledCommand("year-close"))
+	m.HandleFunc("POST /api/v1/accounting/period-reopenings/{action}", s.controlledCommand("period-reopening"))
+	m.HandleFunc("GET /api/v1/finance/adjustments", s.listAdjustments)
+	m.HandleFunc("POST /api/v1/finance/adjustments/{action}", s.controlledCommand("adjustment"))
+	m.HandleFunc("GET /api/v1/taxes/report", s.taxReport)
+	m.HandleFunc("GET /api/v1/fx-policy", s.fxPolicy)
+	m.HandleFunc("POST /api/v1/fx-policy", s.setFXPolicy)
+	m.HandleFunc("GET /api/v1/exchange-rates/recorded", s.recordedRate)
 	m.HandleFunc("POST /api/v1/payroll/policies", s.payrollPolicyCreate)
 	m.HandleFunc("POST /api/v1/payroll/policies/approve", s.payrollPolicyApprove)
 

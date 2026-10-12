@@ -16,6 +16,7 @@ export type Account = {
   normal_balance?: string;
   parent_id?: string | null;
   reporting_category?: string;
+  statement_class?: string | null;
 };
 export type Period = {
   id: string;

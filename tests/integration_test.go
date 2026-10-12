@@ -122,6 +122,7 @@ func setup(t *testing.T) *fixture {
 	f.payload = map[string]any{"branch_id": f.data.Branches["A:HQ"], "accounting_date": "2026-09-14", "description": "Acceptance opening cash receipt", "currency": "ETB", "fx_rate": "1", "reason": "Acceptance evidence", "lines": []any{map[string]any{"account_id": f.data.Accounts["A:1000"], "debit_minor": "10000", "credit_minor": "0"}, map[string]any{"account_id": f.data.Accounts["A:4000"], "debit_minor": "0", "credit_minor": "10000"}}}
 	return f
 }
+
 // rate records an exchange rate (functional per one unit of currency) for company A through
 // the runtime API role, as a user holding configuration.manage (granted here to "all").
 func (f *fixture) rate(t *testing.T, currency, date, rate string) {

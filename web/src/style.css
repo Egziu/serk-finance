@@ -17,9 +17,6 @@
   --green: #166453;
   --mint: #e8f3ee;
 }
-.MuiDataGrid-root > div[style*="pointer-events"] {
-  display: none !important;
-}
 * {
   box-sizing: border-box;
 }
@@ -2397,3 +2394,25 @@ button.compact { padding: 6px 12px; font-size: 12px; }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .drawer-head h2 { margin: 0; font-size: 18px; }
 .MuiDrawer-paper .evidence-panel { grid-template-columns: 1fr; padding: 16px; border-radius: 6px; }
+
+/* 0.2.2 period-end, adjustments and reports */
+.simple-table td { padding: 12px 21px; vertical-align: middle; }
+.simple-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.simple-table th.num { text-align: right; }
+.blockers { margin: 8px 0 14px; padding-left: 18px; color: #8a3a1c; }
+.blockers li { margin: 4px 0; }
+.panel-note { padding: 0 21px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px 18px; padding: 16px 21px; }
+.form-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.line-editor { padding: 0 21px 16px; }
+.line-editor .line-row { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(140px, 1.4fr) minmax(80px, 0.8fr) 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.line-editor .line-row.head { font-size: 11px; color: var(--muted); }
+.totals-row { display: flex; gap: 24px; justify-content: flex-end; padding: 0 21px 12px; font-variant-numeric: tabular-nums; }
+.totals-row .bad { color: #a33b1c; }
+@media (max-width: 760px) {
+  .line-editor .line-row { grid-template-columns: 1fr 1fr; }
+  .line-editor .line-row.head { display: none; }
+  .form-grid { padding: 12px 16px; }
+}
+.panel > .detail-footer { padding: 16px 21px 20px; }
+.panel > .detail-footer > div > p:first-child { margin-top: 0; }

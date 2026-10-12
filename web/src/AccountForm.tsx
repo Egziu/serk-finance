@@ -152,6 +152,9 @@ export function AccountForm({ company, csrf, reference, account, defaultParentId
     return "PROFIT_LOSS";
   });
   const [analyticsTag, setAnalyticsTag] = useState<string>("");
+  // IAS 1 presentation: every asset and liability is explicitly current or non-current.
+  const [statementClass, setStatementClass] = useState<string>(account?.statement_class || "CURRENT");
+  const needsClass = type === "ASSET" || type === "LIABILITY";
   const [dimensionId, setDimensionId] = useState<string>("");
 
   const reportingCategory = selectedCategoryOption === "__custom__" ? customCategoryText.trim() : selectedCategoryOption;
@@ -212,6 +215,7 @@ export function AccountForm({ company, csrf, reference, account, defaultParentId
             active,
             posting_allowed: postingAllowed,
             reporting_category: finalReportingCategory,
+            statement_class: needsClass ? statementClass : null,
           }
         });
       } else {
@@ -227,6 +231,7 @@ export function AccountForm({ company, csrf, reference, account, defaultParentId
             posting_allowed: postingAllowed,
             control_account: controlAccount,
             reporting_category: finalReportingCategory,
+            statement_class: needsClass ? statementClass : null,
           }
         });
       }
@@ -483,6 +488,15 @@ export function AccountForm({ company, csrf, reference, account, defaultParentId
 
             {/* Reporting Category Dropdown */}
             <div className="input-group" style={{ margin: 0 }}>
+              {needsClass && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600 }} htmlFor="statement-class">Statement of financial position</label>
+                  <select id="statement-class" aria-label="Current or non-current" value={statementClass} onChange={(e) => setStatementClass(e.target.value)}>
+                    <option value="CURRENT">Current (realised or settled within 12 months)</option>
+                    <option value="NON_CURRENT">Non-current (beyond 12 months)</option>
+                  </select>
+                </div>
+              )}
               <label style={{ fontSize: "0.8rem", fontWeight: 600 }}>Reporting Category</label>
               <select
                 value={selectedCategoryOption}

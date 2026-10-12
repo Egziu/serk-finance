@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
- "regexp"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,7 +32,9 @@ func run() error {
 		return e
 	}
 	for _, f := range files {
- if !regexp.MustCompile(`^[0-9]{3}_[a-z0-9_]+\.sql$`).MatchString(f.Name()) { return fmt.Errorf("unexpected embedded migration: %s", f.Name()) }
+		if !regexp.MustCompile(`^[0-9]{3}_[a-z0-9_]+\.sql$`).MatchString(f.Name()) {
+			return fmt.Errorf("unexpected embedded migration: %s", f.Name())
+		}
 		data, e := migrations.Files.ReadFile(f.Name())
 		if e != nil {
 			return e

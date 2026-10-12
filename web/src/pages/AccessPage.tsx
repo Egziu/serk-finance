@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { Plus, Trash2, X } from "lucide-react";
 import { DataTable } from "../DataTable";
 import { dateTimeCol, statusCol } from "../columns";

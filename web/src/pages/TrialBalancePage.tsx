@@ -1,5 +1,5 @@
 import { Check, AlertCircle } from "lucide-react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { moneyCol } from "../columns";
 import { money } from "../api";
@@ -83,7 +83,7 @@ export function TrialBalancePage({ asof, setAsof, from, setFrom, loadTrial, busy
             columns={columns}
             getRowId={(r) => r.account_id}
             loading={busy}
-            initialState={{ sorting: { sortModel: [{ field: "code", sort: "asc" }] }, pinnedColumns: { left: ["code"] } }}
+            initialState={{ sorting: { sortModel: [{ field: "code", sort: "asc" }] } }}
             fileName={"trial-balance-" + trial.as_of}
             pageSize={100}
             height={540}

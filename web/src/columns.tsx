@@ -1,4 +1,4 @@
-import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid-pro";
+import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
 import { money } from "./api";
 import { Badge } from "./shared";
 

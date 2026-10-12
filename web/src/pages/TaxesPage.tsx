@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { api, money } from "../api";
 import { AlertCircle } from "lucide-react";

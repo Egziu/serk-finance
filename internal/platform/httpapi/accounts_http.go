@@ -107,7 +107,6 @@ func (s *Server) createBranch(w http.ResponseWriter, r *http.Request) {
 	write(w, 201, map[string]string{"id": newID})
 }
 
-
 func (s *Server) createDimension(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Kind string `json:"kind"`
@@ -133,4 +132,3 @@ func (s *Server) createDimension(w http.ResponseWriter, r *http.Request) {
 
 	write(w, 201, map[string]string{"id": newID})
 }
-

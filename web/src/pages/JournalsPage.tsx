@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BookOpen, ShieldCheck, RefreshCw, ArrowUpRight } from "lucide-react";
-import type { GridColDef, GridFilterModel } from "@mui/x-data-grid-pro";
+import type { GridColDef, GridFilterModel } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { dateCol, dateTimeCol, moneyCol, statusCol } from "../columns";
 import type { Reference, Journal } from "../types";
@@ -112,7 +112,7 @@ export function JournalsPage({ reference, online, busy, navigate, reload, journa
           // A hand-made filter no longer matches a status tab.
           if (!(m.items.length === 1 && m.items[0].id === "tab")) setTab(m.items.length ? "-" : "");
         }}
-        initialState={{ sorting: { sortModel: [{ field: "created_at", sort: "desc" }] }, pinnedColumns: { left: ["number"], right: ["open"] } }}
+        initialState={{ sorting: { sortModel: [{ field: "created_at", sort: "desc" }] } }}
         onAdd={reference?.permissions.create && online ? () => navigate("new") : undefined}
         addLabel="New journal"
         fileName="journals"

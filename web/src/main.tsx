@@ -22,7 +22,6 @@ import { Icon, today } from "./shared";
 import React, { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { LicenseInfo } from "@mui/x-license";
 import createCache from "@emotion/cache";
 import { CacheProvider } from "@emotion/react";
 import { nonce } from "./csp";
@@ -51,8 +50,6 @@ import type { Session, Reference, Journal, Trial, Audit } from "./types";
 import "./style.css";
 
 const JOURNAL_CAP = 5000, AUDIT_CAP = 10000;
-// Set VITE_MUI_X_LICENSE_KEY at build time; without it the grid shows MUI's license watermark.
-LicenseInfo.setLicenseKey(import.meta.env.VITE_MUI_X_LICENSE_KEY ?? "");
 const styleCache = createCache({ key: "css", nonce, prepend: true });
 const theme = createTheme({
   palette: { primary: { main: "#166453" }, text: { primary: "#203436", secondary: "#758584" }, divider: "#e3eae7" },

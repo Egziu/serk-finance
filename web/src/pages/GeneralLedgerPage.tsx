@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { api, money } from "../api";
 import { today } from "../shared";
 import { DataTable } from "../DataTable";

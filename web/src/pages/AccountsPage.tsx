@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { AccountForm, REPORTING_CATEGORIES_BY_TYPE } from "../AccountForm";
 import { BranchForm } from "../BranchForm";

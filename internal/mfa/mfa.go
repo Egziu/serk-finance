@@ -62,6 +62,7 @@ func Decrypt(key []byte, user, encrypted string) (string, error) {
 	}
 	return string(plain), nil
 }
+
 // CurrentCode is used only by the development-mode code display (SERK_DEV_SHOW_OTP).
 func CurrentCode(secret string, now time.Time) (string, error) {
 	return totp.GenerateCodeCustom(secret, now, totp.ValidateOpts{Period: 30, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})

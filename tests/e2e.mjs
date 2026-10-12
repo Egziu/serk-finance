@@ -20,7 +20,7 @@ try{
  await page.getByLabel('Debit line 1',{exact:true}).fill('250000');await page.getByLabel('Credit line 2',{exact:true}).fill('250000');await page.getByLabel('Reason / supporting reference',{exact:true}).fill('Synthetic browser acceptance test. Initial capital receipt.');
  await screenshot('03-journal-entry');await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.getByRole('heading',{name:/JRN-FY2026-000001/})).toBeVisible();
  await transition('Submit','Prepared and supporting evidence attached to acceptance test.');await expect(page.getByRole('button',{name:'Approve journal',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Open profile for accountant',exact:true}).click();await expect(page.getByRole('dialog',{name:'accountant'})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Sign out',exact:true}).click();await signIn(cfg.users[1]);await page.getByRole('button',{name:'JRN-FY2026-000001',exact:true}).click();
+ await page.getByRole('button',{name:'Open profile for accountant',exact:true}).click();await expect(page.getByRole('dialog',{name:'Your profile'})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Sign out',exact:true}).click();await signIn(cfg.users[1]);await page.getByRole('button',{name:'JRN-FY2026-000001',exact:true}).click();
  await transition('Approve','Independent approver verified the original source.');await transition('Post','Release approved entry to the general ledger.');await expect(page.locator('.badge.posted')).toBeVisible();await screenshot('04-posted-journal');
  await page.getByRole('button',{name:'Trial balance',exact:true}).click();await expect(page.getByText('Debits and credits reconcile.',{exact:true})).toBeVisible();await expect(page.locator('tfoot')).toContainText('250,000.00');await screenshot('05-trial-balance');
  await page.getByRole('button',{name:'Bank',exact:true}).click();await expect(page.getByRole('heading',{name:'General ledger',exact:true})).toBeVisible();
@@ -28,6 +28,8 @@ try{
  await page.getByRole('button',{name:'JRN-FY2026-000001',exact:true}).click();await expect(page.getByRole('heading',{name:/JRN-FY2026-000001/})).toBeVisible();
  await page.getByRole('button',{name:'Ledger integrity',exact:true}).click();await expect(page.getByRole('heading',{name:'Local integrity checks passed',exact:true})).toBeVisible();await screenshot('12-ledger-integrity');
  await page.getByRole('button',{name:'Audit history',exact:true}).click();await expect(page.getByText('#4 · journals.posted',{exact:true})).toBeVisible();await screenshot('06-audit-history');
+ await expect(page.getByText(/MUI X Missing license key/)).toHaveCount(0);
+ await page.getByRole('button',{name:'Show details'}).first().click();await expect(page.getByRole('dialog',{name:'Record details'})).toContainText('Event hash');await expect(page.getByRole('button',{name:'Close details',exact:true})).toBeInViewport({ratio:1});await page.waitForTimeout(400);await screenshot('06b-audit-evidence');await page.getByRole('button',{name:'Close details',exact:true}).click();
 
  // Exercise a real three-source-line FX rounding journal and close preview.
  await page.getByRole('button',{name:'Journals',exact:true}).click();

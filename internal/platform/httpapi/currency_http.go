@@ -7,10 +7,10 @@ import (
 )
 
 type exchangeRate struct {
-	ID              string  `json:"id"`
-	Date            string  `json:"date"`
-	BaseCurrency    string  `json:"base_currency"`
-	ForeignCurrency string  `json:"foreign_currency"`
+	ID              string `json:"id"`
+	Date            string `json:"date"`
+	BaseCurrency    string `json:"base_currency"`
+	ForeignCurrency string `json:"foreign_currency"`
 	ExchangeRate    string `json:"exchange_rate"`
 }
 
@@ -23,8 +23,8 @@ func (s *Server) listExchangeRates(w http.ResponseWriter, r *http.Request) {
 }
 
 type addExchangeRateRequest struct {
-	Date            string  `json:"date"`
-	ForeignCurrency string  `json:"foreign_currency"`
+	Date            string `json:"date"`
+	ForeignCurrency string `json:"foreign_currency"`
 	ExchangeRate    string `json:"exchange_rate"`
 }
 
@@ -37,7 +37,9 @@ func (s *Server) addExchangeRate(w http.ResponseWriter, r *http.Request) {
 
 	var newID string
 	e := s.scoped(r, func(tx pgx.Tx) error {
- if _,err:=tx.Exec(r.Context(),"SELECT security.require('configuration.manage')");err!=nil{return err}
+		if _, err := tx.Exec(r.Context(), "SELECT security.require('configuration.manage')"); err != nil {
+			return err
+		}
 		return tx.QueryRow(r.Context(),
 			`INSERT INTO core.exchange_rates (tenant_id, company_id, date, base_currency, foreign_currency, exchange_rate) 
 			 VALUES ((SELECT security.tenant()), (SELECT security.company()), $1, (SELECT functional_currency FROM organization.companies WHERE id=(SELECT security.company())), $2, $3) RETURNING id`,

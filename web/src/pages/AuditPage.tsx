@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { dateTimeCol } from "../columns";
 import { person } from "../shared";
@@ -88,7 +88,7 @@ export function AuditPage({ loadAudit, busy, audit, capped, me, onOpen }: Props)
         <div>
           <div className="eyebrow">CONTROL & ASSURANCE</div>
           <h1>Audit history</h1>
-          <p>Actor, reason, sequence, and evidence for each transition. Each event is chained to the one before it. Expand a row for its evidence.</p>
+          <p>Actor, reason, sequence, and evidence for each transition. Each event is chained to the one before it. Open a row's details for its evidence.</p>
         </div>
         <button className="secondary" onClick={() => loadAudit()} disabled={busy}>
           <RefreshCw size={16} />
@@ -102,7 +102,6 @@ export function AuditPage({ loadAudit, busy, audit, capped, me, onOpen }: Props)
         loading={busy && !audit.length}
         initialState={{
           sorting: { sortModel: [{ field: "sequence_no", sort: "desc" }] },
-          pinnedColumns: { left: ["__detail_panel_toggle__", "sequence_no"] },
         }}
         detailPanel={(a) => <Evidence a={a} />}
         fileName="audit-history"

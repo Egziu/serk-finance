@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
-  DataGridPro,
+  DataGrid,
   Toolbar,
   ColumnsPanelTrigger,
   FilterPanelTrigger,
@@ -17,14 +17,13 @@ import {
   type GridFilterModel,
   type GridInitialState,
   type GridRowIdGetter,
-  type GridRowParams,
   type GridValidRowModel,
-} from "@mui/x-data-grid-pro";
-import { Badge, Button, IconButton, InputAdornment, ListItemIcon, Menu, MenuItem, TextField } from "@mui/material";
+} from "@mui/x-data-grid";
+import { Badge, Button, Drawer, IconButton, InputAdornment, ListItemIcon, Menu, MenuItem, TextField } from "@mui/material";
 import { nonce } from "./csp";
-import { Check, Columns3, Download, FileSpreadsheet, ListFilter, Plus, Printer, Rows3, Search, X } from "lucide-react";
+import { Check, Columns3, Download, FileSpreadsheet, ListFilter, PanelRightOpen, Plus, Printer, Rows3, Search, X } from "lucide-react";
 
-declare module "@mui/x-data-grid-pro" {
+declare module "@mui/x-data-grid" {
   interface ToolbarPropsOverrides {
     onAdd?: () => void;
     addLabel?: string;
@@ -175,7 +174,7 @@ type Props<R extends GridValidRowModel> = {
   footerNote?: ReactNode;
 };
 
-// One grid for every record list: search, column menu (sort, pin, filter, hide, manage),
+// One grid for every record list: search, column menu (sort, filter, hide, manage),
 // multi-condition filters, resizable/reorderable columns, density, CSV/print export and paging.
 export function DataTable<R extends GridValidRowModel>({
   label,
@@ -197,6 +196,27 @@ export function DataTable<R extends GridValidRowModel>({
   detailPanel,
   footerNote,
 }: Props<R>) {
+  // Row details open in a side drawer (the MIT-licensed grid has no expandable detail rows).
+  const [detail, setDetail] = useState<R | null>(null);
+  const gridColumns: GridColDef<R>[] = detailPanel
+    ? [
+        {
+          field: "__details__",
+          headerName: "",
+          width: 56,
+          sortable: false,
+          filterable: false,
+          disableColumnMenu: true,
+          disableExport: true,
+          renderCell: (p) => (
+            <IconButton size="small" aria-label="Show details" onClick={() => setDetail(p.row)}>
+              <PanelRightOpen size={16} />
+            </IconButton>
+          ),
+        },
+        ...columns,
+      ]
+    : columns;
   return (
     <section className="panel data-table">
       {(title || description) && (
@@ -206,11 +226,11 @@ export function DataTable<R extends GridValidRowModel>({
         </div>
       )}
       <div style={autoHeight ? undefined : { height }}>
-        <DataGridPro<R>
+        <DataGrid<R>
           label={label}
           nonce={nonce}
           rows={rows}
-          columns={columns}
+          columns={gridColumns}
           loading={loading}
           getRowId={getRowId}
           autoHeight={autoHeight}
@@ -225,12 +245,6 @@ export function DataTable<R extends GridValidRowModel>({
           initialState={{ pagination: { paginationModel: { pageSize } }, ...initialState }}
           {...(filterModel ? { filterModel, onFilterModelChange } : {})}
           disableRowSelectionOnClick
-          {...(detailPanel
-            ? {
-                getDetailPanelContent: (p: GridRowParams<R>) => detailPanel(p.row),
-                getDetailPanelHeight: () => "auto" as const,
-              }
-            : {})}
           sx={{
             border: 0,
             fontSize: 13,
@@ -242,6 +256,17 @@ export function DataTable<R extends GridValidRowModel>({
         />
       </div>
       {footerNote && <div className="report-note">{footerNote}</div>}
+      {detailPanel && (
+        <Drawer anchor="right" open={!!detail} onClose={() => setDetail(null)} slotProps={{ paper: { role: "dialog", "aria-label": "Record details", sx: { width: 460, maxWidth: "100vw", boxSizing: "border-box", p: 3 } } }}>
+          <div className="drawer-head">
+            <h2>Details</h2>
+            <IconButton aria-label="Close details" onClick={() => setDetail(null)}>
+              <X size={18} />
+            </IconButton>
+          </div>
+          {detail && detailPanel(detail)}
+        </Drawer>
+      )}
     </section>
   );
 }

@@ -146,25 +146,24 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /api/v1/currencies", s.listCurrencies)
 	m.HandleFunc("GET /api/v1/exchange-rates", s.listExchangeRates)
 	m.HandleFunc("POST /api/v1/exchange-rates", s.addExchangeRate)
-	
+
 	m.HandleFunc("GET /api/v1/dashboard/metrics", s.dashboardMetrics)
 
 	m.HandleFunc("GET /api/v1/profile/mfa", s.profileMFAStatus)
 	m.HandleFunc("POST /api/v1/profile/mfa/enable", s.profileMFAEnable)
 	m.HandleFunc("POST /api/v1/profile/mfa/disable", s.profileMFADisable)
- m.HandleFunc("GET /api/v1/finance/settings",s.financeSettings)
- m.HandleFunc("POST /api/v1/finance/settings",s.financeConfigure)
- m.HandleFunc("POST /api/v1/invoicing/invoices/{id}/{action}",s.invoiceAction)
- m.HandleFunc("POST /api/v1/invoicing/bills/{id}/{action}",s.billAction)
- m.HandleFunc("GET /api/v1/inventory/openings",s.listOpenings)
- m.HandleFunc("POST /api/v1/inventory/openings",s.createOpening)
- m.HandleFunc("POST /api/v1/inventory/openings/{id}/{action}",s.openingAction)
- m.HandleFunc("GET /api/v1/payroll/payruns",s.listPayruns)
- m.HandleFunc("POST /api/v1/payroll/payruns/{id}/{action}",s.payrunAction)
- m.HandleFunc("GET /api/v1/payroll/policies",s.payrollPolicies)
- m.HandleFunc("POST /api/v1/payroll/policies",s.payrollPolicyCreate)
- m.HandleFunc("POST /api/v1/payroll/policies/approve",s.payrollPolicyApprove)
-
+	m.HandleFunc("GET /api/v1/finance/settings", s.financeSettings)
+	m.HandleFunc("POST /api/v1/finance/settings", s.financeConfigure)
+	m.HandleFunc("POST /api/v1/invoicing/invoices/{id}/{action}", s.invoiceAction)
+	m.HandleFunc("POST /api/v1/invoicing/bills/{id}/{action}", s.billAction)
+	m.HandleFunc("GET /api/v1/inventory/openings", s.listOpenings)
+	m.HandleFunc("POST /api/v1/inventory/openings", s.createOpening)
+	m.HandleFunc("POST /api/v1/inventory/openings/{id}/{action}", s.openingAction)
+	m.HandleFunc("GET /api/v1/payroll/payruns", s.listPayruns)
+	m.HandleFunc("POST /api/v1/payroll/payruns/{id}/{action}", s.payrunAction)
+	m.HandleFunc("GET /api/v1/payroll/policies", s.payrollPolicies)
+	m.HandleFunc("POST /api/v1/payroll/policies", s.payrollPolicyCreate)
+	m.HandleFunc("POST /api/v1/payroll/policies/approve", s.payrollPolicyApprove)
 
 	m.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { s.fail(w, r, &problem{404, "not_found"}) })
 	if s.Config.StaticDir != "" {
@@ -244,7 +243,3 @@ func Run() error {
 	}
 	return nil
 }
-
-
-
-

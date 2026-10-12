@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GridColDef } from "@mui/x-data-grid-pro";
+import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable } from "../DataTable";
 import { dateCol, statusCol } from "../columns";
 import { api } from "../api";

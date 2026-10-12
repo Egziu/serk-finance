@@ -157,6 +157,7 @@ func TestFXRoundingAndExactReversal(t *testing.T) {
 	wantCode(t, e, "42501")
 	f.payload["currency"] = "USD"
 	f.payload["fx_rate"] = "0.5"
+	f.rate(t, "USD", "2026-09-01", "0.5")
 	line := func(debit, credit string, account string) any {
 		return map[string]any{"account_id": f.data.Accounts["A:"+account], "debit_minor": debit, "credit_minor": credit}
 	}

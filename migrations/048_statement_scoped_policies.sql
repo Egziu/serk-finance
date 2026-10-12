@@ -75,6 +75,3 @@ ALTER POLICY payslip_branch ON payroll.pay_slips USING (
   ((r.document_id IS NULL AND (SELECT security.can('payroll.read')) AND (SELECT security.can('ledger.read')))
    OR EXISTS(SELECT FROM finance.documents d WHERE d.id=r.document_id
      AND ((SELECT security.company_wide('ledger.read')) OR d.branch_id = ANY((SELECT security.permitted_branches('ledger.read'))::uuid[]))))));
-
-CREATE OR REPLACE FUNCTION security.release_version() RETURNS text LANGUAGE sql IMMUTABLE
-SET search_path=pg_catalog,pg_temp AS $$ SELECT '0.2.2-rc1'::text $$;

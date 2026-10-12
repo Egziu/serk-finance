@@ -1,16 +1,11 @@
 // Synthetic database-only fixtures. No real credentials or business data.
-import {PGlite} from '@electric-sql/pglite';
+import {openDatabase} from './sql-backend.mjs';
 import {readFileSync,readdirSync} from 'node:fs';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 
 export const sha = value => createHash('sha256').update(value).digest('hex');
 export async function database(through=999) {
-  const db=await PGlite.create();
-  for(const name of readdirSync('migrations').filter(n=>/^\d+.*\.sql$/.test(n)).sort()) {
-    if(Number(name.slice(0,3))>through) continue;
-    await db.exec('BEGIN;'+readFileSync('migrations/'+name,'utf8')+';RESET ROLE;COMMIT;');
-  }
-  return db;
+  return openDatabase(through);
 }
 export async function fixture(db,suffix='primary') {
   const f={tenant:randomUUID(),company:randomUUID(),otherCompany:randomUUID(),branch:randomUUID(),second:randomUUID(),year:randomUUID(),period:randomUUID(),accounts:{},users:{},tokens:{},csrf:randomBytes(32).toString('base64url')};

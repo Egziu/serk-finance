@@ -82,7 +82,7 @@ try{
   await reject(()=>call('maker',"SELECT finance.policy_command('approve',$1::jsonb) AS value",[JSON.stringify({id:pol.id,expected_version:pol.version})]),'42501');
   await call('checker',"SELECT finance.policy_command('approve',$1::jsonb) AS value",[JSON.stringify({id:pol.id,expected_version:pol.version})]);
   await master('EMPLOYEE',{branch_id:f.branch,first_name:'Synthetic',last_name:'Employee',salary_amount:'10000',pay_frequency:'MONTHLY'});
-  const p={branch_id:f.branch,accounting_date:'2026-10-01',payrun_number:'PAY-2026-09',pay_frequency:'MONTHLY',pay_period_start:'2026-09-01',pay_period_end:'2026-09-30',policy_id:pol.id};
+  const p={branch_id:f.branch,accounting_date:'2026-09-30',payrun_number:'PAY-2026-09',pay_frequency:'MONTHLY',pay_period_start:'2026-09-01',pay_period_end:'2026-09-30',policy_id:pol.id};
   let d=await command('maker','PAYROLL','create',p);assert.equal(d.total_amount,'8300');assert.equal(d.subtotal,'10000');assert.equal(d.payload.lines[0].employer_pension_minor,'1100');
   d=await post(d);assert.equal(d.state,'APPROVED');const slips=await f.query('maker','SELECT gross_pay::text,net_pay::text,taxes_withheld::text FROM payroll.pay_slips');assert.deepEqual(slips[0],{gross_pay:'10000',net_pay:'8300',taxes_withheld:'1000'});
   await reject(()=>command('maker','PAYROLL','create',{...p,payrun_number:'PAY-REPEAT'}),'23505');
@@ -108,7 +108,7 @@ try{
  });
  await check('module-linked journal cannot bypass its source workflow',async()=>{await reject(()=>f.command('maker','repair:source-bypass','reverse',{id:b1.journal_id,expected_version:4,accounting_date:'2026-10-01',reason:'Synthetic bypass attempt'}),'55000');});
  await check('balance sheet asset sections are disjoint and reconcile',async()=>{
-  const id=randomUUID();await db.query("INSERT INTO ledger.accounts(id,tenant_id,company_id,code,name,type,normal_balance,reporting_category) VALUES($1,$2,$3,'1500','Synthetic property','ASSET','DEBIT','PROPERTY')",[id,f.tenant,f.company]);
+  const id=randomUUID();await db.query("INSERT INTO ledger.accounts(id,tenant_id,company_id,code,name,type,normal_balance,reporting_category,statement_class) VALUES($1,$2,$3,'1500','Synthetic property','ASSET','DEBIT','PROPERTY','NON_CURRENT')",[id,f.tenant,f.company]);
   const p=f.payload('100');p.lines=[{account_id:id,debit_minor:'100',credit_minor:'0'},{account_id:f.accounts['3000'],debit_minor:'0',credit_minor:'100'}];await f.post('repair-property',p);
   const b=await call('maker',"SELECT ledger.balance_sheet('2026-10-12') AS value");assert.equal(b.assets.current_assets.filter(x=>x.id===id).length,0);assert.equal(b.assets.non_current_assets.filter(x=>x.id===id).length,1);assert.equal(b.is_balanced,true);
  });
@@ -132,4 +132,4 @@ try{
   assert.equal((await f.query('maker','SELECT journal_id FROM finance.documents WHERE id=$1',[d.id]))[0].journal_id,null);
  });
 }catch(e){console.error('FAIL',e.code,e.message);process.exitCode=1;}
-finally{if(db)await db.close();const result={started,finished:new Date().toISOString(),status:process.exitCode?'FAIL':'PASS',passed:results.filter(x=>x.status==='PASS').length,failed:results.filter(x=>x.status==='FAIL').length,backend:'PGlite sequential synthetic SQL',results,limitations:'No native concurrency, Go compile/HTTP, container, or browser execution is represented by this suite.'};writeFileSync(out+'/results.json',JSON.stringify(result,null,2));}
+finally{if(db)await db.close();const result={started,finished:new Date().toISOString(),status:process.exitCode?'FAIL':'PASS',passed:results.filter(x=>x.status==='PASS').length,failed:results.filter(x=>x.status==='FAIL').length,backend:db?.native?'native PostgreSQL synthetic SQL':'PGlite sequential synthetic SQL',results,limitations:'No native concurrency, Go compile/HTTP, container, or browser execution is represented by this suite.'};writeFileSync(out+'/results.json',JSON.stringify(result,null,2));}

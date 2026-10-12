@@ -122,6 +122,23 @@ func setup(t *testing.T) *fixture {
 	f.payload = map[string]any{"branch_id": f.data.Branches["A:HQ"], "accounting_date": "2026-09-14", "description": "Acceptance opening cash receipt", "currency": "ETB", "fx_rate": "1", "reason": "Acceptance evidence", "lines": []any{map[string]any{"account_id": f.data.Accounts["A:1000"], "debit_minor": "10000", "credit_minor": "0"}, map[string]any{"account_id": f.data.Accounts["A:4000"], "debit_minor": "0", "credit_minor": "10000"}}}
 	return f
 }
+// rate records an exchange rate (functional per one unit of currency) for company A through
+// the runtime API role, as a user holding configuration.manage (granted here to "all").
+func (f *fixture) rate(t *testing.T, currency, date, rate string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, e := f.admin.Exec(ctx, `INSERT INTO security.role_permissions(tenant_id,role_id,permission)
+		SELECT r.tenant_id,r.id,'configuration.manage' FROM security.roles r WHERE r.tenant_id=$1::uuid AND r.name='all' ON CONFLICT DO NOTHING`, f.data.TenantID); e != nil {
+		t.Fatal(e)
+	}
+	if e := f.scope("maker", func(tx pgx.Tx) error {
+		_, e := tx.Exec(ctx, `INSERT INTO core.exchange_rates(tenant_id,company_id,date,base_currency,foreign_currency,exchange_rate)
+			SELECT tenant_id,id,$1::date,functional_currency,$2,$3::numeric FROM organization.companies WHERE id=(SELECT security.company())`, date, currency, rate)
+		return e
+	}); e != nil {
+		t.Fatal(e)
+	}
+}
 func (f *fixture) scope(user string, fn func(pgx.Tx) error) error {
 	return f.db.Scoped(context.Background(), f.tokens[user], f.data.Companies["A"], f.csrf[user], map[string]string{"request_id": "integration"}, fn)
 }
@@ -202,6 +219,7 @@ func TestFinancialLifecycle(t *testing.T) {
 		json.Unmarshal(b, &p)
 		p["currency"] = "USD"
 		p["fx_rate"] = "125.75"
+		f.rate(t, "USD", "2026-09-13", "125.75")
 		j, e := f.cmd("maker", "fx-exact-0001", "create", p)
 		if e != nil {
 			t.Fatal(e)
@@ -211,6 +229,7 @@ func TestFinancialLifecycle(t *testing.T) {
 			t.Fatal("lost currency evidence", line)
 		}
 		p["fx_rate"] = "0.5"
+		f.rate(t, "USD", "2026-09-14", "0.5")
 		p["lines"] = []any{
 			map[string]any{"account_id": f.data.Accounts["A:1000"], "debit_minor": "1", "credit_minor": "0"},
 			map[string]any{"account_id": f.data.Accounts["A:1000"], "debit_minor": "1", "credit_minor": "0"},

@@ -90,12 +90,15 @@ func Open(ctx context.Context, dsn, role string) (*Pool, error) {
 	e = result.Transaction(ctx, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT security.release_version()`).Scan(&version)
 	})
-	if e != nil || version != "0.2.1-rc1" {
+	if e != nil || version != ReleaseVersion {
 		p.Close()
 		return nil, errors.New("database migration version does not match this release")
 	}
 	return result, nil
 }
+
+// ReleaseVersion is the schema marker this binary requires (security.release_version()).
+const ReleaseVersion = "0.2.2-rc1"
 
 func (p *Pool) Transaction(ctx context.Context, fn func(pgx.Tx) error) error {
 	tx, e := p.BeginTx(ctx, pgx.TxOptions{})

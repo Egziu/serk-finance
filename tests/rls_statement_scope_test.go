@@ -3,6 +3,8 @@ package tests
 import (
 	"context"
 	"regexp"
+
+	"serk.finance/internal/platform/database"
 	"testing"
 )
 
@@ -53,7 +55,7 @@ func TestSecurityContextIsStatementScoped(t *testing.T) {
 		assertStatementScoped(t, "function security."+fn, body)
 	}
 	var version string
-	if e = f.admin.QueryRow(ctx, `SELECT security.release_version()`).Scan(&version); e != nil || version != "0.2.0-rc4" {
+	if e = f.admin.QueryRow(ctx, `SELECT security.release_version()`).Scan(&version); e != nil || version != database.ReleaseVersion {
 		t.Fatal("unexpected schema version", version, e)
 	}
 }

@@ -42,7 +42,3 @@ func (s *Server) generalLedger(w http.ResponseWriter, r *http.Request) {
 func (s *Server) integrity(w http.ResponseWriter, r *http.Request) {
 	s.query(w, r, `SELECT ledger.integrity_status()`)
 }
-
-func (s *Server) taxLiability(w http.ResponseWriter, r *http.Request) {
-	s.query(w, r, `SELECT coalesce(json_build_object('total_tax_liability', coalesce(sum(functional_credit_minor - functional_debit_minor), 0)), '{}'::json) FROM ledger.lines l JOIN ledger.accounts a ON a.id = l.account_id WHERE a.name = 'Sales Tax Payable' AND l.tenant_id = (SELECT security.tenant()) AND l.company_id = (SELECT security.company())`)
-}

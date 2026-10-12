@@ -30,13 +30,13 @@
 - **VAT report.** A date-ranged VAT report reports reversals as negative amounts of the original type and reconciles to ledger movement. A tax rate that is in use cannot be re-priced or back-dated.
 - **Payroll accrual (IAS 19).** Payroll is dated on the last day of its pay period; the payment date is recorded separately.
 - **Purchase returns (IAS 2).** A purchase return is refused once the item's stock has moved after the bill, because it would distort weighted-average cost. Use an inventory adjustment instead.
-- **Stock count shortages (IAS 2).** Stock removed by a count adjustment leaves at its moving weighted-average cost, recalculated at approval.
+- **Stock counts (IAS 2).** Stock removed or found by a count adjustment moves at its moving weighted-average cost, recalculated at approval. Found stock can carry its own cost only when there is no unreserved stock to average.
 
 ## Fixes from the independent release verification (migration 052)
 
 - Exchange rates were readable only by configuration administrators, so no other accountant could post a foreign-currency journal. Rates are now readable with `ledger.read`; writing them still needs `configuration.manage`.
 - Recorded rates now have a maximum age, so an old rate can no longer validate a current journal.
-- Count adjustments are now valued at weighted-average cost.
+- Count adjustments (shortages and found stock) are now valued at weighted-average cost, and the adjustments screen suggests exactly that value, including when stock is reserved.
 - FX policy changes are now audited correctly; saving the policy previously failed.
 
 ## API changes

@@ -6,8 +6,10 @@
 --             writing them still needs configuration.manage.
 --  V2         A recorded rate is only used for journals dated within the company's maximum rate age
 --             (default 7 days), so a months-old rate cannot validate a current journal.
---  V3 (IAS 2) Stock removed by an inventory count adjustment leaves at the item's moving weighted-
---             average cost, computed when the adjustment is approved; arbitrary values are refused.
+--  V3 (IAS 2) Stock removed or found by an inventory count adjustment moves at the item's moving
+--             weighted-average cost, computed when the adjustment is approved; arbitrary values are
+--             refused. Only when no unreserved stock is held (no average exists) may found stock carry
+--             its own cost. Value-only write-downs (quantity 0) are unaffected.
 SET LOCAL ROLE serk_owner;
 
 ALTER POLICY repaired_read ON core.exchange_rates
@@ -36,22 +38,28 @@ END $$;
 REVOKE ALL ON FUNCTION ledger.set_fx_policy(integer,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ledger.set_fx_policy(integer,integer) TO serk_api;
 
--- Count adjustments that remove stock must carry the moving weighted-average cost at approval.
+-- Count adjustments move stock at the moving weighted-average cost at approval.
 CREATE FUNCTION finance.guard_count_valuation() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,finance,inventory,pg_temp AS $$
-DECLARE pos finance.positions; line jsonb; qty numeric; cr numeric; expected numeric;
+DECLARE pos finance.positions; line jsonb; qty numeric; delta numeric; expected numeric; avail numeric;
 BEGIN
  IF NEW.state='POSTED' AND OLD.state='SUBMITTED' AND NEW.purpose='INVENTORY_ADJUSTMENT' THEN
   FOR line IN SELECT * FROM jsonb_array_elements(NEW.lines) WHERE value ? 'item_id' LOOP
    qty:=(line->>'quantity_delta')::numeric;
-   CONTINUE WHEN qty>=0;
-   cr:=(line->>'credit_minor')::numeric-(line->>'debit_minor')::numeric;
+   CONTINUE WHEN qty=0;
+   delta:=(line->>'debit_minor')::numeric-(line->>'credit_minor')::numeric;
    -- Positions were already moved by this approval; reconstruct the balance before it.
    SELECT * INTO STRICT pos FROM finance.positions WHERE item_id=(line->>'item_id')::uuid;
-   pos.quantity:=pos.quantity-qty; pos.value_minor:=pos.value_minor+cr;
-   expected:=CASE WHEN -qty=pos.quantity-pos.reserved_quantity THEN pos.value_minor-pos.reserved_minor
-    ELSE round((pos.value_minor-pos.reserved_minor)*(-qty)/(pos.quantity-pos.reserved_quantity)) END;
-   IF cr<>expected THEN RAISE EXCEPTION 'inventory_adjustment_not_at_average_cost' USING ERRCODE='23514'; END IF;
+   pos.quantity:=pos.quantity-qty; pos.value_minor:=pos.value_minor-delta;
+   avail:=pos.quantity-pos.reserved_quantity;
+   IF qty<0 THEN
+    expected:=-CASE WHEN -qty=avail THEN pos.value_minor-pos.reserved_minor ELSE round((pos.value_minor-pos.reserved_minor)*(-qty)/avail) END;
+   ELSIF avail>0 THEN
+    expected:=round((pos.value_minor-pos.reserved_minor)*qty/avail);
+   ELSE
+    CONTINUE;
+   END IF;
+   IF delta<>expected THEN RAISE EXCEPTION 'inventory_adjustment_not_at_average_cost' USING ERRCODE='23514'; END IF;
   END LOOP;
  END IF;
  RETURN NEW;

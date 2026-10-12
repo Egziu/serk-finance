@@ -8,7 +8,7 @@ type Adjustment = {
   id: string; number: string; purpose: string; accounting_date: string; description: string; state: string; version: number;
   total_minor: string; created_by: string; submitted_by: string | null; approved_by: string | null; created_at: string; journal_id: string | null;
 };
-type Item = { id: string; name: string; type: string; asset_account_id: string | null; stock_quantity?: string; stock_value_minor?: string; reserved_quantity?: string };
+type Item = { id: string; name: string; type: string; asset_account_id: string | null; stock_quantity?: string; stock_value_minor?: string; reserved_quantity?: string; reserved_minor?: string };
 type Line = { account_id: string; debit: string; credit: string; description: string; item_id: string; quantity_delta: string };
 
 const purposes: [string, string, string][] = [
@@ -87,15 +87,18 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
   const post = (path: string, body: unknown) => api<Adjustment>(path, company, { method: "POST", csrf, key: crypto.randomUUID(), body });
   const step = (a: Adjustment, action: string, why: string) => post(`/finance/adjustments/${action}`, { id: a.id, expected_version: a.version, reason: why });
   const set = (i: number, patch: Partial<Line>) => setLines(lines.map((l, n) => (n === i ? { ...l, ...patch } : l)));
-  // Stock removed by a count leaves at moving weighted-average cost (IAS 2); suggest that value.
-  // The server recomputes it exactly at approval and refuses any other value.
+  // Counted stock moves at moving weighted-average cost (IAS 2); suggest exactly what the server
+  // recomputes at approval: unreserved value / unreserved quantity, the exact remainder when the
+  // whole unreserved balance is removed. Found stock with no average yet keeps a typed cost.
   function suggestCost(i: number, qtyText: string) {
     const l = lines[i], item = items.find((it) => it.id === l.item_id), q = Number(qtyText);
-    if (!item || !(q < 0) || !item.stock_value_minor) return set(i, { quantity_delta: qtyText });
-    const available = Number(item.stock_quantity ?? 0) - Number(item.reserved_quantity ?? 0);
-    if (available <= 0) return set(i, { quantity_delta: qtyText });
-    const minorCost = Math.round((Number(item.stock_value_minor) * -q) / available);
-    set(i, { quantity_delta: qtyText, credit: (minorCost / 10 ** places).toFixed(places), debit: "" });
+    if (!item || !q || !Number.isFinite(q) || item.stock_value_minor === undefined) return set(i, { quantity_delta: qtyText });
+    const availQty = Number(item.stock_quantity ?? 0) - Number(item.reserved_quantity ?? 0);
+    const availValue = BigInt(item.stock_value_minor) - BigInt(item.reserved_minor ?? "0");
+    if (availQty <= 0) return set(i, { quantity_delta: qtyText });
+    const minorCost = -q === availQty ? availValue : BigInt(Math.round((Number(availValue) * Math.abs(q)) / availQty));
+    const major = (Number(minorCost) / 10 ** places).toFixed(places);
+    set(i, q < 0 ? { quantity_delta: qtyText, credit: major, debit: "" } : { quantity_delta: qtyText, debit: major, credit: "" });
   }
 
   async function create() {

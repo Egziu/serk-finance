@@ -160,6 +160,19 @@ try{
    lines:[{account_id:m.a['5001'],debit_minor:cost,credit_minor:'0'},{account_id:m.a['1400'],debit_minor:'0',credit_minor:cost,item_id:m.item.id,quantity_delta:'-1'}]});
   x=await m.adjStep(await m.adjStep(x,'submit','maker'),'approve','checker');assert.equal(x.state,'POSTED');
  });
+ await check('V3 found stock is also valued at moving weighted-average cost',async()=>{
+  const pos=(await f.query('maker','SELECT quantity::text,value_minor::text,reserved_quantity::text,reserved_minor::text FROM finance.positions WHERE item_id=$1',[m.item.id]))[0];
+  const avail=Number(pos.quantity)-Number(pos.reserved_quantity),value=Number(BigInt(pos.value_minor)-BigInt(pos.reserved_minor));
+  const cost=String(Math.round(value/avail));
+  let x=await m.adjust('maker','create',{purpose:'INVENTORY_ADJUSTMENT',number:'FOUND-BAD',branch_id:f.branch,accounting_date:'2026-09-21',description:'Found stock',reason:'Stock count',
+   lines:[{account_id:m.a['1400'],debit_minor:'1000000',credit_minor:'0',item_id:m.item.id,quantity_delta:'1'},{account_id:m.a['5001'],debit_minor:'0',credit_minor:'1000000'}]});
+  x=await m.adjStep(x,'submit','maker');
+  await reject(()=>m.adjStep(x,'approve','checker'),'23514','inventory_adjustment_not_at_average_cost');
+  await m.adjStep(x,'void','maker');
+  x=await m.adjust('maker','create',{purpose:'INVENTORY_ADJUSTMENT',number:'FOUND-OK',branch_id:f.branch,accounting_date:'2026-09-21',description:'Found stock',reason:'Stock count',
+   lines:[{account_id:m.a['1400'],debit_minor:cost,credit_minor:'0',item_id:m.item.id,quantity_delta:'1'},{account_id:m.a['5001'],debit_minor:'0',credit_minor:cost}]});
+  x=await m.adjStep(await m.adjStep(x,'submit','maker'),'approve','checker');assert.equal(x.state,'POSTED');
+ });
  await check('A7 a purchase return is refused once the stock has moved after the bill',async()=>{
   const b=await m.post(await m.bill('BILL-RET','4','300','2026-09-22'));
   await m.post(await m.invoice('INV-RET','1','700','2026-09-22'));

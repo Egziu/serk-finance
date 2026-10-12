@@ -23,8 +23,8 @@ Evidence: `test-results/validation-0.2.2/`. `summary.tsv` lists each step with i
 | 04 | `go build ./...` | PASS. **0.2.1-rc1 failed this step**: duplicate `Server.taxLiability`. |
 | 05 | Fresh database: migrations 001–052 applied, then re-run | PASS — 53 files applied, then 53 checksums verified |
 | 06 | Go suite on native PostgreSQL with `-race` | **PASS — 52/52 top-level tests, 42/42 subtests, 0 skipped.** Includes the 8 native concurrency tests (idempotency, posting, close-vs-post, close-vs-create, MFA counter, runtime identity, dimension change, chart write skew) that had never run before. |
-| 07 | `tests/controls-022.mjs` on native PostgreSQL | PASS — 21/21 (security S1–S5, IFRS A1–A7, adjustments D1, release-verification fixes V1–V3) |
-| 08 | `tests/controls-022.mjs` on PGlite | PASS — 21/21 |
+| 07 | `tests/controls-022.mjs` on native PostgreSQL | PASS — 22/22 (security S1–S5, IFRS A1–A7, adjustments D1, release-verification fixes V1–V3) |
+| 08 | `tests/controls-022.mjs` on PGlite | PASS — 22/22 |
 | 09 | `tests/remediation.mjs` on native PostgreSQL | PASS — 27/27 (module workflows, stock costing, payroll, payments, reversals) |
 | 10 | `tests/remediation.mjs` on PGlite | PASS — 27/27 |
 | 11 | Populated upgrade preservation (baselines 004, 005, 007, 009, 010, 036 → 052) | PASS — 6/6; financial, audit and outbox hashes preserved |
@@ -59,13 +59,13 @@ Each confirmed defect is fixed in migrations 049–052 and has a regression case
 
 ## Independent release verification
 
-A third, independent verifier extracted the packaged archive, checked `SHA256SUMS`, confirmed that migrations 001–047 are byte-identical to 0.2.1-rc1, and reran everything above on its own database. All counts reproduced. It also attacked the new code (approving your own adjustment through other routes, negative inventory value, reopening a closed year, idempotency-key reuse, branch-scope leaks), and every attack failed. It found three defects, all fixed in migration 052 with regression cases V1–V3:
+A third, independent verifier extracted the packaged archive, checked `SHA256SUMS`, confirmed that migrations 001–047 are byte-identical to 0.2.1-rc1, and reran everything above on its own database. All counts reproduced. It also attacked the new code (approving your own adjustment through other routes, negative inventory value, reopening a closed year, idempotency-key reuse, branch-scope leaks), and every attack failed. It found three defects, all fixed in migration 052 with regression cases V1–V3. A second verification pass of the rebuilt archive reproduced every count and found two follow-ups (found stock could still carry any value, and the screen's cost suggestion ignored reserved stock); both are fixed and covered by an added V3 case:
 
 - **High:** accountants without configuration rights could not post a foreign-currency journal, because exchange rates were hidden from them.
 - **Low:** a months-old rate could validate a journal.
 - **Low:** count shortages could be valued arbitrarily.
 
-It also found two documentation errors, which are corrected.
+It also found four documentation errors (the FX pre-fill claim, "a rate for their date", broken links in `docs/security.md`, and the browser-coverage wording), all corrected.
 
 ## Not run here — still required
 

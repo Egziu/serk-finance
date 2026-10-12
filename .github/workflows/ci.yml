@@ -1,0 +1,36 @@
+name: financial-controls
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read}
+concurrency:
+  group: financial-controls-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SERK_ENV: development
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with: {go-version-file: go.mod, cache: true}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: '24', cache: npm, cache-dependency-path: '**/package-lock.json'}
+      - run: npm ci --ignore-scripts && npm --prefix web ci
+      - run: web/node_modules/.bin/playwright install --with-deps chromium
+      - name: Local and native release gates
+        run: python3 scripts/release-check.py --native
+      - name: Scan the tested application image
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with: {image-ref: 'serk-finance:verification', format: table, exit-code: '1', severity: 'CRITICAL,HIGH'}
+      - name: Produce the application image SBOM
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with: {image-ref: 'serk-finance:verification', format: cyclonedx, output: 'test-results/image-sbom.cdx.json'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: verification-evidence
+          path: test-results/
+          retention-days: 30
+  # Repository branch protection and independent review are required deployment gates.
+  # No live deployment or product approval is implied by a green foundation build.

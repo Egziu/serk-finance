@@ -1,0 +1,9 @@
+{
+  "version": "0.2.1-rc1",
+  "build_revision": 1,
+  "source_id": "1ae61f205c1c6dd3b52c3c1bcb8a240bc73973a977459dc19bbba49750271c2f",
+  "created_utc": "2026-10-12T18:02:16.359480+00:00",
+  "production_approved": false,
+  "source_commit": "Upstream commit not resolved; identify this candidate by source_id and archive checksums.",
+  "native_acceptance": "NOT_RUN"
+}

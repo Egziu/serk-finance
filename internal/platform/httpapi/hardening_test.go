@@ -1,0 +1,80 @@
+package httpapi
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestProductionCookieBoundary(t *testing.T) {
+	s := &Server{Config: Config{SecureCookies: true}}
+	rr := httptest.NewRecorder()
+	s.cookie(rr, "value", 60)
+	c := rr.Result().Cookies()[0]
+	if c.Name != "__Host-serk_session" || !c.Secure || !c.HttpOnly || c.Path != "/" || c.Domain != "" || c.SameSite != http.SameSiteStrictMode {
+		t.Fatal(c)
+	}
+	req := httptest.NewRequest("GET", "https://finance.example", nil)
+	req.AddCookie(&http.Cookie{Name: "serk_session", Value: "injected"})
+	if s.token(req) != "" {
+		t.Fatal("accepted non-host-bound production cookie")
+	}
+}
+func TestJSONEncodingAndLimits(t *testing.T) {
+	for _, body := range [][]byte{[]byte("{\"x\":\"\xff\"}"), []byte(`{"a":1,"a":2}`), []byte(`{} {}`), []byte(strings.Repeat("[", 34) + "0" + strings.Repeat("]", 34))} {
+		if validateJSON(body) == nil {
+			t.Fatalf("invalid input accepted %q", body)
+		}
+	}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", strings.NewReader(`{"x":"`+strings.Repeat("a", 513<<10)+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	var value any
+	if decode(rr, req, &value) == nil {
+		t.Fatal("oversized body accepted")
+	}
+}
+func TestHealthProbesAreNotRateLimited(t *testing.T) {
+	s := &Server{limits: &limiter{entries: map[string]window{}}}
+	for i := 0; i < 601; i++ {
+		s.limits.Allow("all:192.0.2.1", 600)
+	}
+	h := s.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	for _, p := range []struct {
+		path   string
+		status int
+	}{{"/health/ready", 200}, {"/api/v1/session", 429}} {
+		req := httptest.NewRequest("GET", p.path, nil)
+		req.RemoteAddr = "192.0.2.1:8080"
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != p.status {
+			t.Fatal(p.path, rr.Code)
+		}
+	}
+}
+
+func TestForwardedAddressTrustBoundary(t *testing.T) {
+	req := httptest.NewRequest("GET", "/", nil)
+	req.RemoteAddr = "127.0.0.1:1000"
+	req.Header.Set("X-Real-IP", "198.51.100.2")
+	s := &Server{}
+	if s.clientIP(req) != "127.0.0.1" {
+		t.Fatal("trusted unsolicited header")
+	}
+	server, e := New(nil, nil, Config{Origin: "http://localhost:8080", TrustedProxyCIDRs: []string{"127.0.0.1/32"}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if server.clientIP(req) != "198.51.100.2" {
+		t.Fatal("configured proxy not recognized")
+	}
+	req.Header.Set("X-Real-IP", "198.51.100.2, 127.0.0.1")
+	if server.clientIP(req) != "127.0.0.1" {
+		t.Fatal("accepted ambiguous header")
+	}
+	if _, e = New(nil, nil, Config{Origin: "http://localhost:8080", TrustedProxyCIDRs: []string{"0.0.0.0/0"}}); e == nil {
+		t.Fatal("unrestricted proxy trust")
+	}
+}

@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+!.env.release.example
+*.key
+*.pem
+node_modules/
+dist/
+bin/
+coverage.out
+test-results/
+.local/
+*.log
+*.dump
+*.db
+*.db-*
+playwright-report/

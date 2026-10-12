@@ -1,0 +1,56 @@
+name: serk-finance
+services:
+  db:
+    image: postgres:17.11-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    environment:
+      POSTGRES_DB: serk
+      POSTGRES_PASSWORD: ${SERK_DB_ADMIN_PASSWORD:?Generate .env first}
+    volumes: ["finance-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d serk"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    profiles: ["tools"]
+    build: {context: ., target: tools}
+    environment:
+      SERK_ENV: development
+      MIGRATOR_DATABASE_URL: postgres://postgres:${SERK_DB_ADMIN_PASSWORD}@db:5432/serk?sslmode=disable
+    depends_on: {db: {condition: service_healthy}}
+  roles:
+    profiles: ["tools"]
+    image: postgres:17.11-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    environment:
+      PGPASSWORD: ${SERK_DB_ADMIN_PASSWORD}
+      SERK_API_PASSWORD: ${SERK_API_PASSWORD:?Generate .env first}
+      SERK_AUTH_PASSWORD: ${SERK_AUTH_PASSWORD:?Generate .env first}
+    volumes: ["./scripts/runtime-roles.psql:/runtime-roles.psql:ro"]
+    command: ["psql", "-h", "db", "-U", "postgres", "-d", "serk", "-v", "ON_ERROR_STOP=1", "-f", "/runtime-roles.psql"]
+    depends_on: {db: {condition: service_healthy}}
+  bootstrap:
+    profiles: ["tools"]
+    build: {context: ., target: tools}
+    entrypoint: ["/app/bootstrap"]
+    command: ["--file", "-"]
+    stdin_open: true
+    environment:
+      SERK_ENV: development
+      MIGRATOR_DATABASE_URL: postgres://postgres:${SERK_DB_ADMIN_PASSWORD}@db:5432/serk?sslmode=disable
+  api:
+    build: {context: ., target: runtime}
+    environment:
+      SERK_ENV: development
+      SERK_ORIGIN: http://localhost:8080
+      SERK_DEV_SHOW_OTP: "false"
+      SERK_MFA_KEY: ${SERK_MFA_KEY:?Generate a fresh local key with scripts/init-local.py}
+      DATABASE_URL: postgres://serk_api_login:${SERK_API_PASSWORD}@db:5432/serk?sslmode=disable
+      AUTH_DATABASE_URL: postgres://serk_auth_login:${SERK_AUTH_PASSWORD}@db:5432/serk?sslmode=disable
+    ports: ["127.0.0.1:8080:8080"]
+    read_only: true
+    tmpfs: ["/tmp:size=16m"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: {db: {condition: service_healthy}}
+volumes:
+  finance-data:

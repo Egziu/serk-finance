@@ -1,0 +1,69 @@
+{
+  "at": "2026-09-20T19:32:18.319795+00:00",
+  "images": [
+    {
+      "registry": "registry-1.docker.io",
+      "repository": "library/node",
+      "tag": "24-bookworm-slim",
+      "digest": "sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+      "source": "https://registry-1.docker.io/v2/library/node/manifests/24-bookworm-slim",
+      "status": "RESOLVED"
+    },
+    {
+      "registry": "registry-1.docker.io",
+      "repository": "library/golang",
+      "tag": "1.27.1-bookworm",
+      "digest": "sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195",
+      "source": "https://registry-1.docker.io/v2/library/golang/manifests/1.27.1-bookworm",
+      "status": "RESOLVED"
+    },
+    {
+      "registry": "registry-1.docker.io",
+      "repository": "library/postgres",
+      "tag": "17.11-bookworm",
+      "digest": "sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652",
+      "source": "https://registry-1.docker.io/v2/library/postgres/manifests/17.11-bookworm",
+      "status": "RESOLVED"
+    },
+    {
+      "registry": "gcr.io",
+      "repository": "distroless/static-debian12",
+      "tag": "nonroot",
+      "digest": "sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab",
+      "source": "https://gcr.io/v2/distroless/static-debian12/manifests/nonroot",
+      "status": "RESOLVED"
+    }
+  ],
+  "actions": [
+    {
+      "repository": "actions/checkout",
+      "tag": "v4",
+      "commit": "11d5960a326750d5838078e36cf38b85af677262",
+      "source": "https://api.github.com/repos/actions/checkout/git/ref/tags/v4"
+    },
+    {
+      "repository": "actions/setup-go",
+      "tag": "v5",
+      "commit": "40f1582b2485089dde7abd97c1529aa768e1baff",
+      "source": "https://api.github.com/repos/actions/setup-go/git/ref/tags/v5"
+    },
+    {
+      "repository": "actions/setup-node",
+      "tag": "v4",
+      "commit": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "source": "https://api.github.com/repos/actions/setup-node/git/ref/tags/v4"
+    },
+    {
+      "repository": "actions/upload-artifact",
+      "tag": "v4",
+      "commit": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "source": "https://api.github.com/repos/actions/upload-artifact/git/ref/tags/v4"
+    },
+    {
+      "repository": "aquasecurity/trivy-action",
+      "tag": "0.35.0",
+      "commit": "57a97c7e7821a5776cebc9bb87c984fa69cba8f1",
+      "source": "https://api.github.com/repos/aquasecurity/trivy-action/git/ref/tags/0.35.0"
+    }
+  ]
+}

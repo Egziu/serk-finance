@@ -1,0 +1,11 @@
+# Current state
+
+Current delivery: **0.2.0-rc3, build 3**, with current evidence in `RC3_BUILD3_REPORT.md` and `test-results/rc3-build3/`. Build 2 fixed the reported teardown race; build 3 closes a separate false-PASS gap for filtered/empty test runs and makes the native handoff explicit. The full selected profile has 15 local PASS checks plus a BLOCKED native gate, so its aggregate status correctly remains FAIL. Go/React product code, dependencies and all migrations 001–009 are unchanged from rc3; schema version remains 0.2.0-rc3. Account/dimension integrity guards and general-ledger/integrity reporting are implemented across SQL, Go API and React. AP/AR, banking rails, tax/payroll, inventory, construction, offline and AI remain future modules. Production use remains blocked pending the stated gates.
+
+The following is retained rc2 provenance, not a description of tests rerun for rc3:
+
+The uploaded archive contained a genuine 0.1.0 manual-journal implementation, three migrations, Go backend, React frontend, provisioning tools, an embedded test harness, deployment scaffolds, domain designs and historical logs. Its archive checksums matched. The working source was preserved in a local audit snapshot before modification; there is no supplied upstream repository or deployed environment to inspect.
+
+The revised 0.2.0-rc2 now contains seven migrations (001–005 remain byte-identical to rc1) and adds MFA enrollment/recovery, source-aware authentication limits, FX rounding policy, safe period-close preview, reversal-date validation, startup diagnostics, static-serving controls, immutable upstream pins, direct HTTP coverage and two additional native concurrency cases. It retains operator account lifecycle actions, financial/identity protections, deployment configuration checks and executable release/recovery workflows. Exact changed files and checksums are included in the release manifests.
+
+Local controls and browser tests exercise the working foundation. The 36-domain vision remains a phased target. Native PostgreSQL, Docker, a public host, identity provider and production backup infrastructure are not available in this workspace. No claim of live deployment, external approval, compliance certification, complete business functionality or error-free operation is made.

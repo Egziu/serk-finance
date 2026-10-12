@@ -1,0 +1,7 @@
+-- Operator only; separate login identities inherit narrowly scoped runtime roles.
+\getenv api_password SERK_API_PASSWORD
+\getenv auth_password SERK_AUTH_PASSWORD
+SELECT 'CREATE ROLE serk_api_login LOGIN IN ROLE serk_api' WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname='serk_api_login') \gexec
+SELECT 'CREATE ROLE serk_auth_login LOGIN IN ROLE serk_auth' WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname='serk_auth_login') \gexec
+SELECT format('ALTER ROLE serk_api_login PASSWORD %L', :'api_password') \gexec
+SELECT format('ALTER ROLE serk_auth_login PASSWORD %L', :'auth_password') \gexec

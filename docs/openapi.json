@@ -1,0 +1,4760 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SERK Finance ERP",
+    "version": "0.2.1-rc1",
+    "description": "Implemented endpoints only. This build is not production approved. See docs/implementation-status.md."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_post",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        },
+        "description": "Password plus TOTP in secure environments. Source/account throttling resets on success. Bounded password-check queue returns retryable 503 under sustained overload."
+      }
+    },
+    "/api/v1/auth/login/mfa": {
+      "post": {
+        "operationId": "loginMFA_post",
+        "summary": "Login mfa",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "operationId": "logout_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "get": {
+        "summary": "Session",
+        "operationId": "session_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/reference": {
+      "get": {
+        "summary": "Reference",
+        "operationId": "reference_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/accounts": {
+      "get": {
+        "operationId": "listAccounts_get",
+        "summary": "List accounts",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAccount_post",
+        "summary": "Create account",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/accounts/{id}": {
+      "put": {
+        "operationId": "updateAccount_put",
+        "summary": "Update account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/branches": {
+      "post": {
+        "operationId": "createBranch_post",
+        "summary": "Create branch",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/dimensions": {
+      "post": {
+        "operationId": "createDimension_post",
+        "summary": "Create dimension",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/customers": {
+      "post": {
+        "operationId": "createCustomer_post",
+        "summary": "Create customer",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listCustomers_get",
+        "summary": "List customers",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/vendors": {
+      "post": {
+        "operationId": "createVendor_post",
+        "summary": "Create vendor",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listVendors_get",
+        "summary": "List vendors",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/invoices": {
+      "post": {
+        "operationId": "createInvoice_post",
+        "summary": "Create invoice",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listInvoices_get",
+        "summary": "List invoices",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/bills": {
+      "post": {
+        "operationId": "createBill_post",
+        "summary": "Create bill",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listBills_get",
+        "summary": "List bills",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/taxes/agencies": {
+      "post": {
+        "operationId": "createTaxAgency_post",
+        "summary": "Create tax agency",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listTaxAgencies_get",
+        "summary": "List tax agencies",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/taxes/rates": {
+      "post": {
+        "operationId": "createTaxRate_post",
+        "summary": "Create tax rate",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listTaxRates_get",
+        "summary": "List tax rates",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/employees": {
+      "post": {
+        "operationId": "createEmployee_post",
+        "summary": "Create employee",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listEmployees_get",
+        "summary": "List employees",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/run": {
+      "post": {
+        "operationId": "runPayroll_post",
+        "summary": "Run payroll",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/invoices/{id}/approve": {
+      "post": {
+        "operationId": "approveInvoice_post",
+        "summary": "Approve invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/invoices/{id}/pay": {
+      "post": {
+        "operationId": "payInvoice_post",
+        "summary": "Pay invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/bills/{id}/approve": {
+      "post": {
+        "operationId": "approveBill_post",
+        "summary": "Approve bill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/bills/{id}/pay": {
+      "post": {
+        "operationId": "payBill_post",
+        "summary": "Pay bill",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/items": {
+      "post": {
+        "operationId": "createItem_post",
+        "summary": "Create item",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listItems_get",
+        "summary": "List items",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/journals": {
+      "get": {
+        "summary": "List",
+        "operationId": "list_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create",
+        "operationId": "create_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/journals/{id}": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/journals/{id}/{action}": {
+      "post": {
+        "operationId": "transition_post",
+        "summary": "Transition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/periods/{id}/close-preview": {
+      "get": {
+        "summary": "Period close preview",
+        "operationId": "periodClosePreview_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Advisory counts by state. The close transaction independently rechecks after locking the period."
+      }
+    },
+    "/api/v1/accounting/periods/{id}/close": {
+      "post": {
+        "summary": "Close period",
+        "operationId": "closePeriod_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        },
+        "description": "Requires period.close and company-wide ledger.read. Atomically refuses if any draft, submitted or approved journal remains. Replays use the same idempotency key."
+      }
+    },
+    "/api/v1/accounting/fiscal-years": {
+      "post": {
+        "operationId": "createFiscalYear_post",
+        "summary": "Create fiscal year",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/trial-balance": {
+      "get": {
+        "summary": "Trial",
+        "operationId": "trial_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/general-ledger": {
+      "get": {
+        "summary": "General ledger",
+        "operationId": "generalLedger_get",
+        "description": "Posted functional-currency amounts are integer strings. Row security limits branches. Ordering is accounting_date, journal_id, line_no. Pages are live reads, not one retained multi-request snapshot.",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/balance-sheet": {
+      "get": {
+        "operationId": "balanceSheet_get",
+        "summary": "Balance sheet",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/income-statement": {
+      "get": {
+        "operationId": "incomeStatement_get",
+        "summary": "Income statement",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/integrity": {
+      "get": {
+        "summary": "Integrity",
+        "operationId": "integrity_get",
+        "description": "Requires company-wide ledger.read and audit.read. Does not certify external delivery, compliance or protection against database administrators. The database statement timeout bounds long scans.",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/taxes/liability": {
+      "get": {
+        "operationId": "taxLiability_get",
+        "summary": "Tax liability",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/audit/events": {
+      "get": {
+        "summary": "Audit",
+        "operationId": "audit_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/catalog": {
+      "get": {
+        "tags": [
+          "Access management"
+        ],
+        "summary": "Admin catalog",
+        "operationId": "adminCatalog_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Requires user.manage or role.manage (company-wide). The users list is empty without user.manage. Grants shown are for the current company."
+      }
+    },
+    "/api/v1/admin/users": {
+      "post": {
+        "tags": [
+          "Access management"
+        ],
+        "summary": "Admin create user",
+        "operationId": "adminCreateUser_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Requires user.manage. Grants apply to the current company. Enforced in the database: you can only grant permissions you hold (privilege_escalation); the company keeps at least one administrator (last_administrator); you cannot disable or reset your own account (cannot_change_self). Every change is written to the audit chain."
+      }
+    },
+    "/api/v1/admin/users/{id}/{action}": {
+      "post": {
+        "operationId": "adminUserAction_post",
+        "summary": "Admin user action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles": {
+      "post": {
+        "tags": [
+          "Access management"
+        ],
+        "summary": "Admin create role",
+        "operationId": "adminCreateRole_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Requires role.manage. Enforced in the database: you can only grant permissions you hold (privilege_escalation); the company keeps at least one administrator (last_administrator); you cannot disable or reset your own account (cannot_change_self). Every change is written to the audit chain."
+      }
+    },
+    "/api/v1/admin/roles/{id}/{action}": {
+      "post": {
+        "operationId": "adminRoleAction_post",
+        "summary": "Admin role action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/currencies": {
+      "get": {
+        "operationId": "listCurrencies_get",
+        "summary": "List currencies",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/exchange-rates": {
+      "get": {
+        "operationId": "listExchangeRates_get",
+        "summary": "List exchange rates",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "addExchangeRate_post",
+        "summary": "Add exchange rate",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/metrics": {
+      "get": {
+        "operationId": "dashboardMetrics_get",
+        "summary": "Dashboard metrics",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/profile/mfa": {
+      "get": {
+        "operationId": "profileMFAStatus_get",
+        "summary": "Profile mfastatus",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/profile/mfa/enable": {
+      "post": {
+        "operationId": "profileMFAEnable_post",
+        "summary": "Profile mfaenable",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/mfa/disable": {
+      "post": {
+        "operationId": "profileMFADisable_post",
+        "summary": "Profile mfadisable",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/settings": {
+      "get": {
+        "operationId": "financeSettings_get",
+        "summary": "Finance settings",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "financeConfigure_post",
+        "summary": "Finance configure",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/invoices/{id}/{action}": {
+      "post": {
+        "operationId": "invoiceAction_post",
+        "summary": "Invoice action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoicing/bills/{id}/{action}": {
+      "post": {
+        "operationId": "billAction_post",
+        "summary": "Bill action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/openings": {
+      "get": {
+        "operationId": "listOpenings_get",
+        "summary": "List openings",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOpening_post",
+        "summary": "Create opening",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/openings/{id}/{action}": {
+      "post": {
+        "operationId": "openingAction_post",
+        "summary": "Opening action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/payruns": {
+      "get": {
+        "operationId": "listPayruns_get",
+        "summary": "List payruns",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/payruns/{id}/{action}": {
+      "post": {
+        "operationId": "payrunAction_post",
+        "summary": "Payrun action",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expected_version",
+                  "reason"
+                ],
+                "properties": {
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "accounting_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "payment_account_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/policies": {
+      "get": {
+        "operationId": "payrollPolicies_get",
+        "summary": "Payroll policies",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "payrollPolicyCreate_post",
+        "summary": "Payroll policy create",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/policies/approve": {
+      "post": {
+        "operationId": "payrollPolicyApprove_post",
+        "summary": "Payroll policy approve",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "summary": "Liveness",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness",
+        "responses": {
+          "200": {
+            "description": "Healthy"
+          },
+          "503": {
+            "description": "Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "SessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-serk_session",
+        "description": "Staging and production secure host-only session cookie."
+      },
+      "DevelopmentSessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "serk_session",
+        "description": "Loopback development mode only."
+      }
+    },
+    "schemas": {
+      "GeneralLedger": {
+        "type": "object",
+        "required": [
+          "account",
+          "from",
+          "as_of",
+          "currency",
+          "company_wide",
+          "opening_minor",
+          "debit_minor",
+          "credit_minor",
+          "closing_minor",
+          "rows",
+          "has_more",
+          "next_cursor"
+        ],
+        "properties": {
+          "account": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "company_wide": {
+            "type": "boolean"
+          },
+          "balance_convention": {
+            "const": "debit_minus_credit"
+          },
+          "opening_minor": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "debit_minor": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "credit_minor": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "closing_minor": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "after_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "after_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "after_line": {
+                "type": "integer"
+              }
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "journal_id",
+                "number",
+                "line_no",
+                "accounting_date",
+                "debit_minor",
+                "credit_minor",
+                "running_minor"
+              ],
+              "properties": {
+                "journal_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "line_no": {
+                  "type": "integer"
+                },
+                "accounting_date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "debit_minor": {
+                  "type": "string"
+                },
+                "credit_minor": {
+                  "type": "string"
+                },
+                "running_minor": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "journal_description": {
+                  "type": "string"
+                },
+                "is_rounding": {
+                  "type": "boolean"
+                },
+                "transaction_currency": {
+                  "type": "string"
+                },
+                "transaction_debit_minor": {
+                  "type": "string"
+                },
+                "transaction_credit_minor": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "IntegrityStatus": {
+        "type": "object",
+        "required": [
+          "ok",
+          "checked_at",
+          "company_id",
+          "scope",
+          "limitations"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope": {
+            "const": "company_wide"
+          },
+          "limitations": {
+            "type": "string"
+          },
+          "posted_journals": {
+            "type": "integer"
+          },
+          "audit_events": {
+            "type": "integer"
+          },
+          "audit_head": {
+            "type": "string"
+          },
+          "unbalanced_posted_journals": {
+            "type": "integer"
+          },
+          "audit_chain_errors": {
+            "type": "integer"
+          },
+          "audit_head_errors": {
+            "type": "integer"
+          },
+          "outbox_mismatches": {
+            "type": "integer"
+          },
+          "journal_event_version_errors": {
+            "type": "integer"
+          }
+        }
+      },
+      "Minor": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,27})$",
+        "description": "Nonnegative exact integer minor units; not a JSON number"
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "request_id"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Dimension": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "dimension_id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "DEPARTMENT",
+              "COST_CENTER",
+              "PROJECT",
+              "CONTRACT",
+              "WBS",
+              "FUNDING_SOURCE",
+              "EMPLOYEE",
+              "CUSTOMER",
+              "SUPPLIER",
+              "WAREHOUSE",
+              "ASSET"
+            ]
+          },
+          "dimension_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Line": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "account_id",
+          "debit_minor",
+          "credit_minor"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "debit_minor": {
+            "$ref": "#/components/schemas/Minor"
+          },
+          "credit_minor": {
+            "$ref": "#/components/schemas/Minor"
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 11,
+            "items": {
+              "$ref": "#/components/schemas/Dimension"
+            }
+          }
+        }
+      },
+      "CreateJournal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "branch_id",
+          "accounting_date",
+          "description",
+          "currency",
+          "fx_rate",
+          "reason",
+          "lines"
+        ],
+        "properties": {
+          "branch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accounting_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "fx_rate": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,11})(\\.[0-9]{1,12})?$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            }
+          }
+        }
+      },
+      "Transition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "accounting_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Required for reverse"
+          }
+        }
+      },
+      "Journal": {
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "state",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "APPROVED",
+              "POSTED",
+              "VOIDED"
+            ]
+          },
+          "effective_state": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "description": "Journal responses may contain up to 501 lines: 2\u2013500 supplied source lines plus one is_rounding=true functional-only line. Exact monetary values are strings. Request bodies cannot supply system lines."
+      },
+      "Login": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenant",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^([0-9]{6})?$",
+            "description": "Required for enrolled users and all staging/production logins; single-use TOTP code."
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "name",
+          "csrf_token",
+          "companies"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "csrf_token": {
+            "type": "string"
+          },
+          "companies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "currency"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "TrialBalance": {
+        "type": "object",
+        "required": [
+          "as_of",
+          "currency",
+          "rows",
+          "debit_minor",
+          "credit_minor"
+        ],
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "debit_minor": {
+            "type": "string"
+          },
+          "credit_minor": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ClosePeriod": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AdminGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role_id"
+        ],
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "branch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Omit or null for all branches"
+          },
+          "approval_limit_minor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Only for roles with journal.approve. Null means no limit; it can never exceed your own limit."
+          }
+        }
+      },
+      "AdminCreateUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "display_name",
+          "password",
+          "grants",
+          "reason"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "password": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 256,
+            "writeOnly": true
+          },
+          "grants": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/AdminGrant"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "example": {
+          "email": "clerk@local.test",
+          "display_name": "Clerk One",
+          "password": "change-me-please-2026",
+          "grants": [
+            {
+              "role_id": "<role id from GET /admin/catalog>"
+            }
+          ],
+          "reason": "New pilot clerk, ticket IAM-7"
+        }
+      },
+      "AdminUpdateUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "display_name",
+          "active",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AdminSetGrants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "grants",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "grants": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/AdminGrant"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AdminResetPassword": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "password",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 256,
+            "writeOnly": true
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AdminRoleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "permissions",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Required for update; omit for create"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "permissions": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            },
+            "description": "Permission codes from GET /admin/catalog"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "example": {
+          "name": "Clerk",
+          "description": "Prepares journals",
+          "permissions": [
+            "ledger.read",
+            "journal.create",
+            "journal.submit"
+          ],
+          "reason": "Pilot clerk role"
+        }
+      },
+      "AdminDeleteRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        }
+      },
+      "AdminUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mfa_enrolled": {
+            "type": "boolean"
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "AdminRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "members": {
+            "type": "integer"
+          }
+        }
+      },
+      "AdminCatalog": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRole"
+            }
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "me": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

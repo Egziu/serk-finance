@@ -1,0 +1,30 @@
+# External verified-TLS PostgreSQL and a host TLS ingress are required.
+# This manifest prepares deployment; passing local tests does not authorize live finance.
+name: serk-finance-release
+services:
+  api:
+    image: ${SERK_IMAGE:?Set the scanned immutable application image digest}
+    restart: unless-stopped
+    environment:
+      SERK_ENV: ${SERK_ENV:-staging}
+      SERK_ORIGIN: ${SERK_ORIGIN:?Set the HTTPS origin without trailing slash}
+      SERK_TRUSTED_PROXY_CIDRS: ${SERK_TRUSTED_PROXY_CIDRS:-}
+      DATABASE_URL: ${DATABASE_URL:?Set the restricted API login URL with sslmode=verify-full}
+      AUTH_DATABASE_URL: ${AUTH_DATABASE_URL:?Set the separate authentication login URL with sslmode=verify-full}
+      SERK_LISTEN: 0.0.0.0:8080
+      SERK_WEB_DIR: /app/web
+      SERK_MFA_KEY_FILE: /run/serk/mfa-key
+    ports: ['127.0.0.1:8080:8080']
+    volumes:
+      - '${SERK_DB_CA_PATH:?Set the public database CA certificate path}:/run/serk/db-ca.pem:ro'
+      - '${SERK_MFA_KEY_PATH:?Set a readable base64-encoded 32-byte MFA key file}:/run/serk/mfa-key:ro'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    stop_grace_period: 25s
+    logging:
+      driver: json-file
+      options: {max-size: '10m', max-file: '5'}

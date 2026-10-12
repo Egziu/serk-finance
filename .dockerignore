@@ -1,0 +1,10 @@
+.git
+.env*
+.local
+node_modules
+web/node_modules
+test-results
+bin
+*.zip
+*.dump
+coverage.out

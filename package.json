@@ -1,0 +1,7 @@
+{
+  "name":"serk-finance-verification",
+  "private":true,
+  "type":"module",
+  "scripts":{"verify":"node tests/verify.mjs","dev":"node tests/verify.mjs --serve"},
+  "devDependencies":{"@electric-sql/pglite":"0.5.8","@electric-sql/pglite-socket":"0.2.11"}
+}

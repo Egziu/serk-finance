@@ -1,0 +1,13 @@
+{
+  "country_code": "ET",
+  "pack_version": "0.0.0-design",
+  "enabled": false,
+  "approval_status": "REQUIRES_STATUTORY_REVIEW",
+  "currencies": ["ETB"],
+  "planned_languages": ["en", "am", "ti"],
+  "planned_calendars": ["gregorian", "ethiopian"],
+  "tax_rule_versions": [],
+  "reporting_rule_versions": [],
+  "document_rule_versions": [],
+  "activation_requirements": ["Authoritative sources and amendments verified", "Independent local tax approval", "Golden calculation and invoice tests", "Subledger-to-GL reconciliation", "Effective-date boundary tests"]
+}

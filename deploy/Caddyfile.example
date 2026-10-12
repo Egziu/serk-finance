@@ -1,0 +1,7 @@
+# Replace with your DNS name. Run Caddy on the host; keep the API on loopback.
+finance.example.com {
+ encode zstd gzip
+ reverse_proxy 127.0.0.1:8080 {
+  header_up X-Real-IP {remote_host}
+ }
+}

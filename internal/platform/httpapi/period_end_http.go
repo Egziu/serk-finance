@@ -98,18 +98,20 @@ func (s *Server) taxReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fxPolicy(w http.ResponseWriter, r *http.Request) {
-	s.query(w, r, `SELECT jsonb_build_object('tolerance_bps',coalesce((SELECT tolerance_bps FROM ledger.fx_policies),200))`)
+	s.query(w, r, `SELECT jsonb_build_object('tolerance_bps',coalesce((SELECT tolerance_bps FROM ledger.fx_policies),200),
+	 'max_age_days',coalesce((SELECT max_age_days FROM ledger.fx_policies),7))`)
 }
 
 func (s *Server) setFXPolicy(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		ToleranceBPS int `json:"tolerance_bps"`
+		ToleranceBPS int  `json:"tolerance_bps"`
+		MaxAgeDays   *int `json:"max_age_days,omitempty"`
 	}
 	if e := decode(w, r, &in); e != nil {
 		s.fail(w, r, e)
 		return
 	}
-	s.query(w, r, `SELECT ledger.set_fx_tolerance($1)`, in.ToleranceBPS)
+	s.query(w, r, `SELECT ledger.set_fx_policy($1,coalesce($2::integer,(SELECT max_age_days FROM ledger.fx_policies),7))`, in.ToleranceBPS, in.MaxAgeDays)
 }
 
 func (s *Server) recordedRate(w http.ResponseWriter, r *http.Request) {

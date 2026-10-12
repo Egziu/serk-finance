@@ -8,7 +8,7 @@ type Adjustment = {
   id: string; number: string; purpose: string; accounting_date: string; description: string; state: string; version: number;
   total_minor: string; created_by: string; submitted_by: string | null; approved_by: string | null; created_at: string; journal_id: string | null;
 };
-type Item = { id: string; name: string; type: string; asset_account_id: string | null };
+type Item = { id: string; name: string; type: string; asset_account_id: string | null; stock_quantity?: string; stock_value_minor?: string; reserved_quantity?: string };
 type Line = { account_id: string; debit: string; credit: string; description: string; item_id: string; quantity_delta: string };
 
 const purposes: [string, string, string][] = [
@@ -87,6 +87,16 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
   const post = (path: string, body: unknown) => api<Adjustment>(path, company, { method: "POST", csrf, key: crypto.randomUUID(), body });
   const step = (a: Adjustment, action: string, why: string) => post(`/finance/adjustments/${action}`, { id: a.id, expected_version: a.version, reason: why });
   const set = (i: number, patch: Partial<Line>) => setLines(lines.map((l, n) => (n === i ? { ...l, ...patch } : l)));
+  // Stock removed by a count leaves at moving weighted-average cost (IAS 2); suggest that value.
+  // The server recomputes it exactly at approval and refuses any other value.
+  function suggestCost(i: number, qtyText: string) {
+    const l = lines[i], item = items.find((it) => it.id === l.item_id), q = Number(qtyText);
+    if (!item || !(q < 0) || !item.stock_value_minor) return set(i, { quantity_delta: qtyText });
+    const available = Number(item.stock_quantity ?? 0) - Number(item.reserved_quantity ?? 0);
+    if (available <= 0) return set(i, { quantity_delta: qtyText });
+    const minorCost = Math.round((Number(item.stock_value_minor) * -q) / available);
+    set(i, { quantity_delta: qtyText, credit: (minorCost / 10 ** places).toFixed(places), debit: "" });
+  }
 
   async function create() {
     const payload = lines.map((l) => {
@@ -156,7 +166,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
                     <option value="">{inventory ? "Choose item" : "—"}</option>
                     {items.filter((it) => it.asset_account_id === l.account_id).map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
                   </select>
-                  <input aria-label={`Adjustment quantity ${i + 1}`} disabled={!inventory} inputMode="decimal" placeholder={inventory ? "0" : ""} value={l.quantity_delta} onChange={(e) => set(i, { quantity_delta: e.target.value })} />
+                  <input aria-label={`Adjustment quantity ${i + 1}`} disabled={!inventory} inputMode="decimal" placeholder={inventory ? "0" : ""} value={l.quantity_delta} onChange={(e) => suggestCost(i, e.target.value)} />
                   <button className="icon-btn" aria-label={`Remove line ${i + 1}`} disabled={lines.length <= 2} onClick={() => setLines(lines.filter((_, n) => n !== i))}><Trash2 size={16} /></button>
                 </div>
               );

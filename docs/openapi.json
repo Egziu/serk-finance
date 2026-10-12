@@ -4389,7 +4389,7 @@
             "description": "Validation failed"
           }
         },
-        "description": "Tolerance (basis points, default 200) between a manual journal's rate and the recorded rate for its date."
+        "description": "Tolerance (basis points, default 200) between a manual journal rate and the recorded rate, and the maximum age in days (default 7) of a recorded rate that may validate a journal."
       },
       "post": {
         "summary": "Set FX policy",
@@ -4444,7 +4444,7 @@
             "description": "Validation failed"
           }
         },
-        "description": "Requires configuration.manage. Body {tolerance_bps: 0..5000}.",
+        "description": "Requires configuration.manage. Body {tolerance_bps: 0..5000, max_age_days?: 0..366}.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4519,7 +4519,7 @@
             "description": "Validation failed"
           }
         },
-        "description": "Query currency, date. Latest recorded rate on or before the date (functional currency per one unit)."
+        "description": "Query currency, date. Latest recorded rate on or before the date and within the maximum rate age (functional currency per one unit); null when none."
       }
     }
   },

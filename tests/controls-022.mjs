@@ -147,6 +147,19 @@ try{
   const total=(await db.query('SELECT sum(value_minor)::text AS v FROM finance.positions p JOIN inventory.items i ON i.id=p.item_id WHERE i.asset_account_id=$1',[m.a['1400']])).rows[0].v;
   assert.equal(await m.balance(m.a['1400']),total);
  });
+ await check('V3 stock removed by a count adjustment leaves at moving weighted-average cost',async()=>{
+  const pos=(await f.query('maker','SELECT quantity::text,value_minor::text,reserved_quantity::text,reserved_minor::text FROM finance.positions WHERE item_id=$1',[m.item.id]))[0];
+  const avail=Number(pos.quantity)-Number(pos.reserved_quantity),value=BigInt(pos.value_minor)-BigInt(pos.reserved_minor);
+  const cost=String(Math.round(Number(value)/avail));
+  let x=await m.adjust('maker','create',{purpose:'INVENTORY_ADJUSTMENT',number:'CNT-BAD',branch_id:f.branch,accounting_date:'2026-09-21',description:'Count shortage',reason:'Stock count',
+   lines:[{account_id:m.a['5001'],debit_minor:'1',credit_minor:'0'},{account_id:m.a['1400'],debit_minor:'0',credit_minor:'1',item_id:m.item.id,quantity_delta:'-1'}]});
+  x=await m.adjStep(x,'submit','maker');
+  await reject(()=>m.adjStep(x,'approve','checker'),'23514','inventory_adjustment_not_at_average_cost');
+  await m.adjStep(x,'void','maker');
+  x=await m.adjust('maker','create',{purpose:'INVENTORY_ADJUSTMENT',number:'CNT-OK',branch_id:f.branch,accounting_date:'2026-09-21',description:'Count shortage',reason:'Stock count',
+   lines:[{account_id:m.a['5001'],debit_minor:cost,credit_minor:'0'},{account_id:m.a['1400'],debit_minor:'0',credit_minor:cost,item_id:m.item.id,quantity_delta:'-1'}]});
+  x=await m.adjStep(await m.adjStep(x,'submit','maker'),'approve','checker');assert.equal(x.state,'POSTED');
+ });
  await check('A7 a purchase return is refused once the stock has moved after the bill',async()=>{
   const b=await m.post(await m.bill('BILL-RET','4','300','2026-09-22'));
   await m.post(await m.invoice('INV-RET','1','700','2026-09-22'));
@@ -185,6 +198,19 @@ try{
   const j=await f.command('maker','c022:fx-ok','create',{...p,fx_rate:'121'});assert.equal(j.fx_rate,'121');
   await reject(()=>f.query('maker',"INSERT INTO core.exchange_rates(tenant_id,company_id,date,base_currency,foreign_currency,exchange_rate) VALUES($1,$2,'2026-09-25','ETB','USD',0)",[f.tenant,f.company]),'23514','invalid_exchange_rate');
   await f.command('maker','c022:fx-void','void',{id:j.id,expected_version:j.version,reason:'Test cleanup'});
+ });
+ await check('V1 an accountant without configuration rights can post a foreign-currency journal at the recorded rate',async()=>{
+  await addUser(f,'fxclerk',ledgerPerms);
+  const rate=await m.call('fxclerk',"SELECT ledger.recorded_rate('USD','2026-09-24') AS value");assert.equal(String(rate),'120');
+  const j=await f.command('fxclerk','c022:fx-clerk','create',{...f.payload('1000','2026-09-24'),currency:'USD',fx_rate:'120'});assert.equal(j.currency,'USD');
+  await f.command('fxclerk','c022:fx-clerk-void','void',{id:j.id,expected_version:j.version,reason:'Test cleanup'});
+ });
+ await check('V2 a recorded rate older than the maximum age does not validate a journal',async()=>{
+  await reject(()=>f.command('maker','c022:fx-stale','create',{...f.payload('1000','2026-10-15'),currency:'USD',fx_rate:'120'}),'23514','exchange_rate_not_recorded');
+  await m.call('maker','SELECT ledger.set_fx_policy(200,30) AS value');
+  const j=await f.command('maker','c022:fx-30d','create',{...f.payload('1000','2026-10-15'),currency:'USD',fx_rate:'120'});
+  await f.command('maker','c022:fx-30d-void','void',{id:j.id,expected_version:j.version,reason:'Test cleanup'});
+  await m.call('maker','SELECT ledger.set_fx_policy(200,7) AS value');
  });
  await check('A2 statement of financial position uses explicit current / non-current classes',async()=>{
   const loan=await m.call('maker',"SELECT ledger.create_account('2500','Bank loan (5 year)','LIABILITY','CREDIT',NULL,true,false,'BORROWINGS','NON_CURRENT') AS value");

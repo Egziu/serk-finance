@@ -1,6 +1,6 @@
 # Current state
 
-Current delivery: **0.2.2-rc1** (schema marker `0.2.2-rc1`, migrations 001–051).
+Current delivery: **0.2.2-rc1** (schema marker `0.2.2-rc1`, migrations 001–052).
 
 ## What exists
 

@@ -1,6 +1,6 @@
-# Current security controls — 0.2.0-rc2
+# Security controls
 
-See [SECURITY_VALIDATION.md](../SECURITY_VALIDATION.md) and [THREAT_MODEL.md](../THREAT_MODEL.md) for current evidence and remaining gates. This version adds strict environment/TLS configuration, host-only secure cookies, explicit proxy trust, persistent source/account throttling with successful-login reset, password revalidation at issuance, operator lifecycle audit, current approver rechecks and stronger runtime-role validation. The native role checks and public deployment are unverified in this workspace. Older design notes below remain scoped to the initial foundation and do not constitute production approval.
+Current release: 0.2.2-rc1 — see the "0.2.2-rc1 additions" section at the end and `VALIDATION_0.2.2.md` for current evidence and remaining gates. The 0.2.0-rc2 notes that follow remain accurate unless superseded there. That version added strict environment/TLS configuration, host-only secure cookies, explicit proxy trust, persistent source/account throttling with successful-login reset, password revalidation at issuance, operator lifecycle audit, current approver rechecks and stronger runtime-role validation. The native role checks and public deployment are unverified in this workspace. Older design notes below remain scoped to the initial foundation and do not constitute production approval.
 
 # Security architecture and trust boundaries
 

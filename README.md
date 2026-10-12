@@ -47,7 +47,7 @@ The release gate includes the repaired full-schema SQL suite and SQL upgrade-pre
 
 ## Upgrading an existing database
 
-Read `serk-finance/UPGRADE_FROM_ORIGINAL.md` first. Preserve a verified backup and stop the application during migration. Migrations 001–047 are byte-identical to 0.2.1-rc1 and 048–051 are forward-only; the original numbered migrations 001–036 are unchanged; a narrowly scoped operator preparation step enables the legacy 033 migration on populated databases, and later migrations remove that temporary access policy.
+Read `serk-finance/UPGRADE_FROM_ORIGINAL.md` first. Preserve a verified backup and stop the application during migration. Migrations 001–047 are byte-identical to 0.2.1-rc1 and 048–052 are forward-only; the original numbered migrations 001–036 are unchanged; a narrowly scoped operator preparation step enables the legacy 033 migration on populated databases, and later migrations remove that temporary access policy.
 
 Invalid historical account references, zero/invalid salaries, or quantity-only inventory balances cause migration to fail rather than inventing corrections. Posted records whose old contents were never captured by the audit trail also require accounting reconciliation. This repair does not fabricate historical audit evidence or rewrite existing posted amounts to make an integrity indicator green.
 

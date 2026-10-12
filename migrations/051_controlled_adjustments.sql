@@ -180,7 +180,3 @@ REVOKE ALL ON FUNCTION finance.adjustment_command(text,text,jsonb),finance.list_
  finance.adjustment_permission(text),finance.adjustment_controls(text),finance.adjustment_read_permission(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION finance.adjustment_command(text,text,jsonb),finance.list_adjustments(),
  finance.adjustment_permission(text),finance.adjustment_controls(text),finance.adjustment_read_permission(text) TO serk_api;
-
--- Publish the runtime marker only after every 0.2.2 migration is present.
-CREATE OR REPLACE FUNCTION security.release_version() RETURNS text LANGUAGE sql IMMUTABLE
-SET search_path=pg_catalog,pg_temp AS $$ SELECT '0.2.2-rc1'::text $$;

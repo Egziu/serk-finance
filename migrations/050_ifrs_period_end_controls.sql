@@ -412,7 +412,7 @@ END $$;
 -- A4: exchange rates.
 ------------------------------------------------------------------------------------------
 CREATE TABLE ledger.fx_policies(
- tenant_id uuid NOT NULL,company_id uuid PRIMARY KEY,tolerance_bps integer NOT NULL DEFAULT 200 CHECK(tolerance_bps BETWEEN 0 AND 5000),
+ id uuid NOT NULL DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,company_id uuid PRIMARY KEY,tolerance_bps integer NOT NULL DEFAULT 200 CHECK(tolerance_bps BETWEEN 0 AND 5000),
  version bigint NOT NULL DEFAULT 1,FOREIGN KEY(tenant_id,company_id) REFERENCES organization.companies(tenant_id,id));
 ALTER TABLE ledger.fx_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ledger.fx_policies FORCE ROW LEVEL SECURITY;

@@ -20,16 +20,24 @@
 - **Per-account login limit.** A per-account login window (50 attempts per 15 minutes across all sources) complements the per-source window. The deployment templates now carry `SERK_TRUSTED_PROXY_CIDRS`.
 - **Error messages.** Application error codes reach the client as stable snake_case codes, never PostgreSQL text. The interface shows a plain-language message for every code.
 
-## IFRS and accounting controls (independent review; migrations 050–051)
+## IFRS and accounting controls (independent review; migrations 050–052)
 
 - **Year-end close (IAS 1).** A dual-controlled CLOSING entry per branch moves the year's profit or loss to a configured retained-earnings account, then closes the final period. Profit-or-loss reports exclude CLOSING entries. The statement of financial position shows retained earnings separately from profit for the open period. Nothing can be posted into a closed year.
 - **Period reopen (IAS 10).** A closed period can be reopened for adjusting events with a second approver. Reopening is refused once the year is closed.
 - **Current / non-current presentation (IAS 1.66–76).** Every asset and liability account carries an explicit `statement_class`. Existing accounts were backfilled using the previous presentation rule.
-- **Exchange rates (IAS 21).** Foreign-currency manual journals must use a recorded rate for their date, within a company tolerance (default 2%). An inverted or mistyped rate is rejected. Rates must be positive and recorded against the functional currency, and the journal form pre-fills the recorded rate.
+- **Exchange rates (IAS 21).** Foreign-currency manual journals must use a rate recorded on or before their date and no older than the company's maximum rate age (default 7 days). The journal rate must also be within the company tolerance (default 2%), so an inverted or mistyped rate is rejected. Rates are positive and recorded against the functional currency. Anyone who can read the ledger can see rates, and the journal form pre-fills the recorded rate. Both checks are set under Currencies & Rates.
 - **Controlled adjustments.** VAT and payroll remittances, receivable write-offs, payable adjustments, inventory count adjustments, write-downs to net realisable value (IAS 2.28) and opening balances now each have a purpose-specific, dual-controlled workflow. Previously the control-account protection made these impossible. Inventory adjustments move the item's quantity and value together with the ledger.
 - **VAT report.** A date-ranged VAT report reports reversals as negative amounts of the original type and reconciles to ledger movement. A tax rate that is in use cannot be re-priced or back-dated.
 - **Payroll accrual (IAS 19).** Payroll is dated on the last day of its pay period; the payment date is recorded separately.
 - **Purchase returns (IAS 2).** A purchase return is refused once the item's stock has moved after the bill, because it would distort weighted-average cost. Use an inventory adjustment instead.
+- **Stock count shortages (IAS 2).** Stock removed by a count adjustment leaves at its moving weighted-average cost, recalculated at approval.
+
+## Fixes from the independent release verification (migration 052)
+
+- Exchange rates were readable only by configuration administrators, so no other accountant could post a foreign-currency journal. Rates are now readable with `ledger.read`; writing them still needs `configuration.manage`.
+- Recorded rates now have a maximum age, so an old rate can no longer validate a current journal.
+- Count adjustments are now valued at weighted-average cost.
+- FX policy changes are now audited correctly; saving the policy previously failed.
 
 ## API changes
 
@@ -49,7 +57,7 @@
 ## Upgrade notes
 
 - **Order:** apply migrations 048–051 in order with the operator connection. They change policies, functions and triggers. The only data they alter is the backfill of `statement_class` and the alignment of `companies.base_currency`.
-- **After upgrading:** review the backfilled current / non-current classes, map `retained_earnings` in finance settings, record exchange rates for currencies you use, and set the FX tolerance if 2% does not fit.
+- **After upgrading:** review the backfilled current / non-current classes, map `retained_earnings` in finance settings, record exchange rates for currencies you use, and set the FX tolerance and maximum rate age if 2% and 7 days do not fit.
 - **Toolchain:** Go **1.27.2** is required (security release fixing `net/http`, `crypto/tls` and `html/template` advisories present in 1.27.1). Refresh the `golang` base-image pin to `1.27.2-bookworm`; the Dockerfile meanwhile lets `go` fetch the verified 1.27.2 toolchain.
 
 ## Still required before live financial use

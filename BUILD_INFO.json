@@ -1,9 +1,8 @@
 {
-  "version": "0.2.1-rc1",
+  "version": "0.2.2-rc1",
   "build_revision": 1,
-  "source_id": "1ae61f205c1c6dd3b52c3c1bcb8a240bc73973a977459dc19bbba49750271c2f",
-  "created_utc": "2026-10-12T18:02:16.359480+00:00",
+  "source_id": "bf05a661ad26c443ccc4a3b4e2a95e6ba5ad32b5153a15b5c8d587404965541b",
+  "created_utc": "2026-10-12T19:37:22.818867+00:00",
   "production_approved": false,
-  "source_commit": "Upstream commit not resolved; identify this candidate by source_id and archive checksums.",
-  "native_acceptance": "NOT_RUN"
+  "source_commit": "No upstream repository supplied; identify this build by source_id and SHA256SUMS."
 }

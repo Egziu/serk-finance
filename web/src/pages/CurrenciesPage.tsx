@@ -80,6 +80,7 @@ export function CurrenciesPage({ company, csrf, currency }: Props) {
         </div>
       </div>
 
+      <FxPolicy company={company} csrf={csrf} />
       {error && (
         <div className="error" role="alert">
           <AlertCircle size={18} />
@@ -119,5 +120,50 @@ export function CurrenciesPage({ company, csrf, currency }: Props) {
         autoHeight
       />
     </>
+  );
+}
+
+// IAS 21 rate checks applied to manual foreign-currency journals.
+function FxPolicy({ company, csrf }: { company: string; csrf: string }) {
+  const [policy, setPolicy] = useState<{ tolerance_bps: number; max_age_days: number } | null>(null);
+  const [edit, setEdit] = useState(false);
+  const [pct, setPct] = useState("2");
+  const [days, setDays] = useState("7");
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    api<{ tolerance_bps: number; max_age_days: number }>("/fx-policy", company).then((p) => {
+      setPolicy(p);
+      setPct(String(p.tolerance_bps / 100));
+      setDays(String(p.max_age_days));
+    }).catch(() => setPolicy(null));
+  }, [company]);
+  if (!policy) return null;
+  return (
+    <section className="panel" aria-label="Rate checks">
+      <div className="detail-footer">
+        <div>
+          <p>
+            Rate checks: a foreign-currency journal must use a rate within <strong>{policy.tolerance_bps / 100}%</strong> of the rate recorded for its date, and that
+            rate must be no more than <strong>{policy.max_age_days} days</strong> old.
+          </p>
+          {msg && <p role="status">{msg}</p>}
+          {!edit ? (
+            <button className="secondary compact" onClick={() => setEdit(true)}>Change rate checks</button>
+          ) : (
+            <>
+              <label>Tolerance (%)<input aria-label="Rate tolerance percent" inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} /></label>
+              <label>Maximum rate age (days)<input aria-label="Maximum rate age" inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} /></label>
+              <button className="primary compact" onClick={async () => {
+                try {
+                  const p = await api<{ tolerance_bps: number; max_age_days: number }>("/fx-policy", company, { method: "POST", csrf, body: { tolerance_bps: Math.round(Number(pct) * 100), max_age_days: Number(days) } });
+                  setPolicy(p); setEdit(false); setMsg("Rate checks updated.");
+                } catch (e) { setMsg(e instanceof Error ? e.message : "Update failed"); }
+              }}>Save</button>
+              <button className="secondary compact" onClick={() => setEdit(false)}>Cancel</button>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

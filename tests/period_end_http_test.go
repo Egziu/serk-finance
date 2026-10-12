@@ -45,7 +45,7 @@ func TestPeriodEndHTTP(t *testing.T) {
 
 	// Exchange-rate helpers.
 	pol := decodeObject(t, f.request(t, "maker", "GET", "/api/v1/fx-policy", "", nil, 200))
-	if pol["tolerance_bps"] != float64(200) {
+	if pol["tolerance_bps"] != float64(200) || pol["max_age_days"] != float64(7) {
 		t.Fatal("default tolerance", pol)
 	}
 	f.request(t, "maker", "POST", "/api/v1/fx-policy", "", map[string]any{"tolerance_bps": 100}, 403)
@@ -53,7 +53,7 @@ func TestPeriodEndHTTP(t *testing.T) {
 	if got["rate"] != nil {
 		t.Fatal("no rate expected", got)
 	}
-	f.rate(t, "USD", "2026-09-01", "120.5")
+	f.rate(t, "USD", "2026-09-10", "120.5")
 	got = decodeObject(t, f.request(t, "maker", "GET", "/api/v1/exchange-rates/recorded?currency=USD&date=2026-09-14", "", nil, 200))
 	if got["rate"] != "120.5" {
 		t.Fatal("recorded rate", got)

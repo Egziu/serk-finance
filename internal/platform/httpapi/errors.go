@@ -7,11 +7,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"serk.finance/internal/accounting"
 )
+
+var appCode = regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
 
 type problem struct {
 	status int
@@ -65,12 +68,11 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, e error) {
 		case "57014", "55P03", "40P01":
 			status, code = 503, "retry_later"
 		}
-		// Only audited, static application codes may cross the database boundary.
-		for _, safe := range []string{"journal_unbalanced", "period_not_open", "segregation_of_duties", "invalid_posting_account", "journal_immutable", "version_conflict", "invalid_transition", "inactive_branch", "reversal_mismatch", "invalid_currency_conversion", "approval_no_longer_authorized", "period_has_unfinished_journals", "reversal_date_before_original", "fx_rounding_not_configured", "fx_rounding_limit_exceeded",
-			"mfa_required", "account_configuration_required", "insufficient_stock", "approved_payroll_policy_required", "payroll_period_already_processed", "use_controlled_stock_opening", "idempotency_key_required", "use_module_workflow", "invalid_payroll_policy", "invalid_payroll_period", "last_administrator", "privilege_escalation", "cannot_change_self", "role_in_use", "invalid_grant", "invalid_permission", "invalid_reason", "invalid_email", "invalid_name"} {
-			if pg.Message == safe {
-				code = safe
-			}
+		// Only static application codes (RAISE EXCEPTION 'snake_case_code') may cross the
+		// database boundary. PostgreSQL's own messages contain spaces and never match, so
+		// constraint names, values and other internals are not disclosed.
+		if appCode.MatchString(pg.Message) {
+			code = pg.Message
 		}
 	} else if errors.Is(e, accounting.ErrInvalid) {
 		status, code = 422, "invalid_journal"

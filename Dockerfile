@@ -1,5 +1,9 @@
 FROM golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS build
 WORKDIR /src
+# go.mod requires the go1.27.2 security release (net/http, crypto/tls, html/template fixes).
+# Until the base-image pin above is refreshed to golang:1.27.2-bookworm, let the go command
+# fetch exactly that toolchain; it is verified against the Go checksum database.
+ENV GOTOOLCHAIN=auto
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .

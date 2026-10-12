@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SERK Finance ERP",
-    "version": "0.2.1-rc1",
+    "version": "0.2.2-rc1",
     "description": "Implemented endpoints only. This build is not production approved. See docs/implementation-status.md."
   },
   "servers": [
@@ -312,7 +312,8 @@
               "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
             }
           }
-        }
+        },
+        "description": "statement_class (CURRENT | NON_CURRENT) is required for ASSET and LIABILITY accounts and must be null otherwise."
       }
     },
     "/api/v1/accounting/accounts/{id}": {
@@ -376,7 +377,8 @@
               "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
             }
           }
-        }
+        },
+        "description": "statement_class (CURRENT | NON_CURRENT) is required for ASSET and LIABILITY accounts and must be null otherwise."
       }
     },
     "/api/v1/organization/branches": {
@@ -3864,6 +3866,660 @@
             "description": "Unavailable"
           }
         }
+      }
+    },
+    "/api/v1/accounting/period-end": {
+      "get": {
+        "summary": "Period end overview",
+        "operationId": "Periodendoverview_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Fiscal years, year-end closes and period reopen requests visible to the caller."
+      }
+    },
+    "/api/v1/accounting/fiscal-years/{id}/close-preview": {
+      "get": {
+        "summary": "Year close preview",
+        "operationId": "Yearclosepreview_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Requires period.close and company-wide ledger.read. Returns the profit for the year, the per-account balances a close would transfer, and blockers (earlier periods open, unfinished journals, final period not open, close already requested)."
+      }
+    },
+    "/api/v1/accounting/year-close/{action}": {
+      "post": {
+        "summary": "Year close command",
+        "operationId": "Yearclosecommand_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "action: request {fiscal_year_id, retained_earnings_account_id, reason} | approve {id, expected_version, reason} (a different user; posts CLOSING journals and closes the final period) | void {id, expected_version, reason} (requester only). Income statements exclude CLOSING entries; nothing further can be posted into a closed year.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounting/period-reopenings/{action}": {
+      "post": {
+        "summary": "Period reopen command",
+        "operationId": "Periodreopencommand_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "action: request {period_id, reason} | approve {id, expected_version, reason} (a different user) | void {id, expected_version, reason}. Refused for LOCKED periods and closed fiscal years.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/adjustments": {
+      "get": {
+        "summary": "List adjustments",
+        "operationId": "Listadjustments_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Latest 200 controlled adjustments visible to the caller (module read permission per purpose, branch scope)."
+      }
+    },
+    "/api/v1/finance/adjustments/{action}": {
+      "post": {
+        "summary": "Adjustment command",
+        "operationId": "Adjustmentcommand_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "action: create {purpose, number, branch_id, accounting_date, description, reason, lines:[{account_id, debit_minor, credit_minor, description?, item_id?, quantity_delta?}]} | submit | approve (a different user) | void, each with {id, expected_version, reason}. purpose: TAX_SETTLEMENT, PAYROLL_SETTLEMENT, RECEIVABLE_ADJUSTMENT, PAYABLE_ADJUSTMENT, INVENTORY_ADJUSTMENT, OPENING_BALANCE. Only the control accounts allowed for the purpose may be used; inventory lines move the item's quantity and value.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/taxes/report": {
+      "get": {
+        "summary": "VAT report",
+        "operationId": "VATreport_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Query from (optional), to (YYYY-MM-DD). Requires taxes.read and ledger.read. Reversals are negative amounts of the original type; includes ledger movement on the mapped VAT accounts for reconciliation."
+      }
+    },
+    "/api/v1/fx-policy": {
+      "get": {
+        "summary": "FX policy",
+        "operationId": "FXpolicy_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Tolerance (basis points, default 200) between a manual journal's rate and the recorded rate for its date."
+      },
+      "post": {
+        "summary": "Set FX policy",
+        "operationId": "SetFXpolicy_post",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Requires configuration.manage. Body {tolerance_bps: 0..5000}.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exchange-rates/recorded": {
+      "get": {
+        "summary": "Recorded rate",
+        "operationId": "Recordedrate_get",
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "DevelopmentSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "404": {
+            "description": "Not found or no access"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "description": "Query currency, date. Latest recorded rate on or before the date (functional currency per one unit)."
       }
     }
   },

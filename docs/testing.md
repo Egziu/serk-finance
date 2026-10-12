@@ -1,5 +1,31 @@
 # Testing and evidence
 
+## Current: 0.2.2-rc1
+
+Evidence for this release is in `test-results/validation-0.2.2/` (`summary.tsv` lists every step, exit code and duration) and is summarised in `VALIDATION_0.2.2.md`.
+
+Native run on a disposable PostgreSQL 17 server:
+
+```bash
+export TEST_DATABASE_URL=postgres://postgres:...@127.0.0.1:5432/serk?sslmode=disable          # operator, disposable
+export MIGRATOR_DATABASE_URL=$TEST_DATABASE_URL SERK_ENV=development
+go run ./cmd/migrate                                                                          # 001-051
+SERK_API_PASSWORD=... SERK_AUTH_PASSWORD=... psql "$TEST_DATABASE_URL" -f scripts/runtime-roles.psql
+export TEST_API_DATABASE_URL=postgres://serk_api_login:...@127.0.0.1:5432/serk?sslmode=disable
+export TEST_AUTH_DATABASE_URL=postgres://serk_auth_login:...@127.0.0.1:5432/serk?sslmode=disable
+go test -race -count=1 ./...                         # 52 top-level tests; the 8 native concurrency tests must PASS, not skip
+SERK_SQL_BACKEND=native node tests/controls-022.mjs  # 0.2.2 security/IFRS controls (creates and drops its own database)
+SERK_SQL_BACKEND=native node tests/remediation.mjs   # 0.2.1 module controls
+node tests/remediation-upgrades.mjs                  # populated upgrade preservation from six baselines (PGlite)
+SERK_BROWSER_EXECUTABLE=/path/to/chrome node tests/verify.mjs --native --e2e   # real browser, MFA, on a fresh database
+grep -v "/go.mod " go.sum | cut -d" " -f1,2 > /tmp/mods.txt && python3 scripts/osv-check.py /tmp/mods.txt <vulndb>/data/osv   # when vuln.go.dev is unreachable
+```
+
+`tests/sql-backend.mjs` lets the SQL fixtures run on PGlite (default) or on native PostgreSQL (`SERK_SQL_BACKEND=native`, which creates a uniquely named database from `TEST_DATABASE_URL` and drops it afterwards).
+
+## Historical (0.2.0-rc3 / rc4)
+
+
 Current package: **0.2.0-rc3, build 3**. `make release-check` runs 15 local checks covering immutable pins, module verification, frontend build, three harness regression gates, the Go race-enabled financial/security suite, SQL controls, populated 0.1.0/rc1/rc2 upgrades, browser acceptance, npm audits and Go vulnerability scanning. It records exact commands, timestamps, exit codes and durations in `test-results/release-check.json`, or beneath `SERK_RESULTS_DIR` when set. The native profile adds a sixteenth check. Any failed or blocked required step keeps the overall gate nonzero.
 
 The local database is PGlite 0.5.8 through pglite-socket 0.2.11. It executes SQL functions, triggers, constraints and row-level policies. It multiplexes one underlying connection and uses an explicit test-role switch. Eight tests require native PostgreSQL: concurrent idempotency, concurrent posting, period close versus posting, period close versus creation, concurrent MFA counter consumption, real runtime-login boundaries, dimension change versus posting, and chart snapshot write skew. They skip locally and must not skip in native verification. The Go race detector tests Go memory races; it does not replace native SQL concurrency tests.

@@ -1,3 +1,16 @@
+# 0.2.2-rc1
+
+- First native verification: Go 1.27.2 build and race-enabled suite on PostgreSQL 17.10 (all 52 top-level tests, including the 8 native concurrency tests), SQL suites on native PostgreSQL and PGlite, real-Chromium MFA end-to-end run.
+- Fix: API did not compile (duplicate `taxLiability`). Fix: per-row RLS evaluation reintroduced by 037/040/047 (migration 048). Replace the unlicensed MUI X Data Grid Pro (and the CSS that hid its watermark) with the MIT grid.
+- Security (049): general-ledger route can no longer drive module/closing journals; cross-company user takeover closed; company-wide configuration permission enforced; master-data changes audited; no PUBLIC function execution; definer functions owned by serk_owner; tenant-scoped companies; per-account login window; generic static error codes.
+- IFRS (050–051): dual-controlled year-end close and period reopen; explicit current/non-current classes; recorded-rate FX tolerance; date-ranged VAT report with correct reversal treatment; in-use tax rates immutable; payroll accrued at period end; purchase returns blocked after stock movement; controlled adjustments for remittances, write-offs, write-downs and opening balances.
+- New API endpoints and UI pages: Year-end & reopen, Adjustments, VAT report, statement class on accounts, recorded-rate pre-fill. New suites: `tests/controls-022.mjs` (18 cases), `tests/period_end_http_test.go`. SQL suites can target native PostgreSQL (`SERK_SQL_BACKEND=native`).
+- Go 1.27.2 required (stdlib security release). `source-map-js` build dependency pinned to 1.2.2 (GHSA-68fv-2mgg-jv7q).
+
+# 0.2.1-rc1
+
+- Financial controls repair: immutable posted SYSTEM lines, controlled module workflows through the kernel, payroll policies, stock openings, payment and reversal approvals, document visibility (migrations 037–047). Validated on PGlite only; see `REPAIR_VALIDATION.md` (historical).
+
 # 0.2.0-rc4, build 1
 
 - Fix a native-only performance defect found by the first native PostgreSQL run: RLS policies and security helpers compared columns directly against non-inlinable SECURITY DEFINER functions, re-evaluating session context per row. A 500-line journal exceeded the 10 s statement timeout. Migration 010 evaluates row-independent context once per statement; access decisions, signatures, owners and grants are unchanged. Worst-case 500-line command: >10 s → 2.6 s.

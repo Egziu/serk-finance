@@ -1,6 +1,6 @@
 {
   "name": "serk-finance-web",
-  "version": "0.2.1-rc1",
+  "version": "0.2.2-rc1",
   "description": "",
   "scripts": {
     "dev": "vite",
@@ -31,6 +31,7 @@
   },
   "private": true,
   "overrides": {
-    "@mui/x-internals": "9.14.0"
+    "@mui/x-internals": "9.14.0",
+    "source-map-js": "1.2.2"
   }
 }

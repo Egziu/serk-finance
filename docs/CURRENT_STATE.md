@@ -1,11 +1,43 @@
 # Current state
 
-Current delivery: **0.2.0-rc3, build 3**, with current evidence in `RC3_BUILD3_REPORT.md` and `test-results/rc3-build3/`. Build 2 fixed the reported teardown race; build 3 closes a separate false-PASS gap for filtered/empty test runs and makes the native handoff explicit. The full selected profile has 15 local PASS checks plus a BLOCKED native gate, so its aggregate status correctly remains FAIL. Go/React product code, dependencies and all migrations 001–009 are unchanged from rc3; schema version remains 0.2.0-rc3. Account/dimension integrity guards and general-ledger/integrity reporting are implemented across SQL, Go API and React. AP/AR, banking rails, tax/payroll, inventory, construction, offline and AI remain future modules. Production use remains blocked pending the stated gates.
+Current delivery: **0.2.2-rc1** (schema marker `0.2.2-rc1`, migrations 001–051).
 
-The following is retained rc2 provenance, not a description of tests rerun for rc3:
+## What exists
 
-The uploaded archive contained a genuine 0.1.0 manual-journal implementation, three migrations, Go backend, React frontend, provisioning tools, an embedded test harness, deployment scaffolds, domain designs and historical logs. Its archive checksums matched. The working source was preserved in a local audit snapshot before modification; there is no supplied upstream repository or deployed environment to inspect.
+- **Financial kernel.**
+  - Double-entry journals with draft → submit → independent approval → post.
+  - Reversals, idempotent commands, exact minor-unit money, FX with a rounding policy and a recorded-rate tolerance.
+  - Period close and dual-controlled reopen, and dual-controlled year-end close to retained earnings.
+  - Hash-chained audit trail with outbox and an integrity check.
+- **Modules.**
+  - Sales invoices and purchase bills with VAT, payments and reversals.
+  - Inventory items with moving weighted-average cost, stock openings and controlled adjustments.
+  - Payroll with dual-approved policies, payruns and payslips.
+  - Taxes: agencies, rates and the VAT report.
+  - Controlled adjustments for VAT and payroll remittance, receivable and payable adjustments, inventory write-downs and opening balances.
+- **Reports.**
+  - Trial balance and general ledger with drill-down.
+  - Statement of financial position, using explicit current / non-current classes.
+  - Statement of profit or loss, excluding closing entries.
+  - Dashboard, ledger integrity and audit history.
+- **Security.**
+  - Argon2id passwords and TOTP MFA with replay protection.
+  - Session cookies with CSRF and strict CSP.
+  - Database-level tenant, company and branch row-level security, evaluated once per statement.
+  - Module permissions, maker-checker throughout, and no PUBLIC function access.
+  - Per-source and per-account login windows.
+- **Frontend.** React with the MIT-licensed MUI data grid, plain-language error messages for every application error code, and mobile layouts.
 
-The revised 0.2.0-rc2 now contains seven migrations (001–005 remain byte-identical to rc1) and adds MFA enrollment/recovery, source-aware authentication limits, FX rounding policy, safe period-close preview, reversal-date validation, startup diagnostics, static-serving controls, immutable upstream pins, direct HTTP coverage and two additional native concurrency cases. It retains operator account lifecycle actions, financial/identity protections, deployment configuration checks and executable release/recovery workflows. Exact changed files and checksums are included in the release manifests.
+## Verification on this release
 
-Local controls and browser tests exercise the working foundation. The 36-domain vision remains a phased target. Native PostgreSQL, Docker, a public host, identity provider and production backup infrastructure are not available in this workspace. No claim of live deployment, external approval, compliance certification, complete business functionality or error-free operation is made.
+Go 1.27.2 build, vet and full test suite with the race detector ran on native PostgreSQL 17.10, including the eight concurrency tests that previously only ever skipped. SQL regression suites ran on both native PostgreSQL and PGlite, alongside upgrade preservation, a real Chromium end-to-end run with MFA, an npm audit and an offline Go vulnerability check. Results are in `VALIDATION_0.2.2.md` and `test-results/validation-0.2.2/`.
+
+## Not yet done
+
+- **Not run in this workspace:**
+  - Container image build and scan (Docker Hub unreachable).
+  - Restore/PITR rehearsal on the target host.
+  - Capacity testing.
+- **Missing features:** the larger functional gaps — Ethiopian calendar and statutory reports, AR/AP allocation and aging, bank reconciliation, fixed assets, cash-flow statement, AI assistant, offline sync — are planned in `docs/ROADMAP.md`.
+
+**Production financial use still requires independent accountant and security acceptance of these exact release bytes.**

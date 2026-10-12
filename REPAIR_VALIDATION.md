@@ -1,3 +1,5 @@
+> **Historical record for 0.2.1-rc1.** Superseded by `VALIDATION_0.2.2.md`; the native gates listed below as not run have since been run for 0.2.2-rc1.
+
 # Repair validation — 0.2.1-rc1
 
 **Decision: release candidate; production financial use remains blocked pending native/infrastructure and independent acceptance.**

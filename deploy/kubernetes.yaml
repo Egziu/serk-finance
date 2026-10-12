@@ -18,6 +18,9 @@ spec:
           env:
             - {name: SERK_ENV, value: production}
             - {name: SERK_ORIGIN, valueFrom: {configMapKeyRef: {name: serk-finance-config, key: origin}}}
+            # Behind an ingress every client otherwise shares the ingress address, so login
+            # throttling would lock out everyone together. Set this to the ingress pod/node CIDR.
+            - {name: SERK_TRUSTED_PROXY_CIDRS, valueFrom: {configMapKeyRef: {name: serk-finance-config, key: trusted_proxy_cidrs}}}
             - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: serk-finance-db, key: api-url}}}
             - {name: AUTH_DATABASE_URL, valueFrom: {secretKeyRef: {name: serk-finance-db, key: auth-url}}}
           readinessProbe: {httpGet: {path: /health/ready, port: 8080}, initialDelaySeconds: 5, periodSeconds: 5}

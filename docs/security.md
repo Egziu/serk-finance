@@ -47,3 +47,13 @@ Treat financial records as CONFIDENTIAL. Future payroll and bank-account details
 ## Authenticator assurance
 
 Staging/production require TOTP and a 32-byte encryption key. Password-only sessions are denied on all scoped API requests and session discovery. MFA enrollment is operator-only, revokes prior sessions, and consumes the setup proof. Encrypted secrets are bound to the user; issuance checks enrollment version and consumes a time step atomically. See [MFA operations](mfa-operations.md). Offline recovery and source-isolation tests run locally; parallel replay needs the native gate.
+
+
+## 0.2.2-rc1 additions
+
+- **General-ledger command scope.** The general-ledger command (`ledger.command`) only operates on MANUAL journals and reversals of MANUAL journals. Module, adjustment and year-end journals (SYSTEM / CLOSING) can only move through their own dual-controlled workflows. The check reads the journal's own source and is not subject to row-level visibility.
+- **Tenant-wide user changes.** Renaming, disabling, resetting a password or changing grants requires the acting administrator to cover the target's permissions in every company where the target has access.
+- **No PUBLIC function access.** `tests/controls-022.mjs` (S4) fails if any application function is executable by PUBLIC or any SECURITY DEFINER function is not owned by `serk_owner`.
+- **Error disclosure.** Only static snake_case application codes cross the database boundary (`internal/platform/httpapi/errors.go`). PostgreSQL's own messages never reach clients.
+- **Login windows.** Up to 10 attempts per minute per (tenant, email, source) and 50 per 15 minutes per (tenant, email) across all sources. Behind a proxy or ingress, set `SERK_TRUSTED_PROXY_CIDRS`; otherwise every client shares the proxy's source window.
+- **Trust boundary of `serk_auth`.** Password (argon2id) and TOTP verification happen in the API process, because PostgreSQL cannot compute argon2id. The `serk_auth` role can therefore issue a session for any user of its tenant, and its credential is equivalent to the ability to sign in as anyone. Keep `serk_auth_login` out of every environment except the API, restrict it by network (`pg_hba.conf`), rotate it, and alert on use from unexpected hosts. A separate verifier service is on the roadmap.

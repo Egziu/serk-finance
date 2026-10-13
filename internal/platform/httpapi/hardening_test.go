@@ -78,3 +78,21 @@ func TestForwardedAddressTrustBoundary(t *testing.T) {
 		t.Fatal("unrestricted proxy trust")
 	}
 }
+
+func TestEffectiveRequireMFA(t *testing.T) {
+	cases := []struct {
+		c    Config
+		want bool
+	}{
+		{Config{}, false},                                       // development
+		{Config{SecureCookies: true}, true},                     // staging/production default
+		{Config{SecureCookies: true, OptionalMFA: true}, false}, // staging with SERK_REQUIRE_MFA=false
+		{Config{SecureCookies: true, OptionalMFA: true, RequireMFA: true}, true},
+		{Config{RequireMFA: true}, true},
+	}
+	for i, tc := range cases {
+		if got := effectiveRequireMFA(tc.c); got != tc.want {
+			t.Fatalf("case %d: got %v want %v", i, got, tc.want)
+		}
+	}
+}

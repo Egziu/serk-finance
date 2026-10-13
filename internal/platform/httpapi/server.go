@@ -18,8 +18,11 @@ import (
 )
 
 type Config struct {
-	MFAKey            []byte
-	RequireMFA        bool
+	MFAKey     []byte
+	RequireMFA bool
+	// OptionalMFA lets a non-development (staging) deployment run without mandatory MFA. Set only
+	// when SERK_ENV=staging and SERK_REQUIRE_MFA=false; production never sets it.
+	OptionalMFA       bool
 	Origin            string
 	SecureCookies     bool
 	StaticDir         string
@@ -41,8 +44,14 @@ type Server struct {
 	trustedProxies     []netip.Prefix
 }
 
+// effectiveRequireMFA: any deployment with secure cookies (staging, production) requires MFA
+// unless it explicitly opted out for staging tests.
+func effectiveRequireMFA(c Config) bool {
+	return c.RequireMFA || (c.SecureCookies && !c.OptionalMFA)
+}
+
 func New(db, authdb *database.Pool, c Config) (*Server, error) {
-	c.RequireMFA = c.RequireMFA || c.SecureCookies
+	c.RequireMFA = effectiveRequireMFA(c)
 	if c.DevShowOTP && c.SecureCookies {
 		return nil, errors.New("SERK_DEV_SHOW_OTP is allowed only in development")
 	}
@@ -248,7 +257,7 @@ func Run() error {
 	if devShowOTP {
 		fmt.Fprintln(os.Stderr, "WARNING: SERK_DEV_SHOW_OTP=true - MFA codes are shown on the sign-in screen. Development only.")
 	}
-	s, e := New(db, a, Config{DevShowOTP: devShowOTP, MFAKey: mfaKey, RequireMFA: requireMFA, Origin: os.Getenv("SERK_ORIGIN"), SecureCookies: environment != "development", StaticDir: os.Getenv("SERK_WEB_DIR"), TrustedProxyCIDRs: strings.FieldsFunc(os.Getenv("SERK_TRUSTED_PROXY_CIDRS"), func(r rune) bool { return r == ',' })})
+	s, e := New(db, a, Config{DevShowOTP: devShowOTP, MFAKey: mfaKey, RequireMFA: requireMFA, OptionalMFA: environment == "staging" && !requireMFA, Origin: os.Getenv("SERK_ORIGIN"), SecureCookies: environment != "development", StaticDir: os.Getenv("SERK_WEB_DIR"), TrustedProxyCIDRs: strings.FieldsFunc(os.Getenv("SERK_TRUSTED_PROXY_CIDRS"), func(r rune) bool { return r == ',' })})
 	if e != nil {
 		return startupFailure("http_configuration", e)
 	}

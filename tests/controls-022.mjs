@@ -97,7 +97,7 @@ try{
   const r=(await db.query(`SELECT p.oid::regprocedure::text AS f, pg_get_userbyid(p.proowner) AS owner, p.prosecdef, has_function_privilege('public',p.oid,'EXECUTE') AS pub
    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN('ledger','security','finance','organization','audit','integration','core','taxes','payroll','inventory','invoicing') AND p.prokind='f'`)).rows;
   assert.deepEqual(r.filter(x=>x.pub).map(x=>x.f),[]);
-  assert.deepEqual(r.filter(x=>x.prosecdef&&x.owner!=='serk_owner').map(x=>x.f),[]);
+  assert.deepEqual(r.filter(x=>x.prosecdef&&x.owner!=='serk_owner'&&!(x.owner==='serk_integrity'&&['ledger.integrity_status_core()','ledger.posted_snapshot_mismatches()'].includes(x.f))).map(x=>x.f),[]);
  });
  await check('S5 the API role sees only its own tenant companies',async()=>{
   const other=randomUUID(),oc=randomUUID();

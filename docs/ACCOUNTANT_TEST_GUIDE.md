@@ -4,7 +4,7 @@ Thank you for testing. This is a **test environment with fictional data**. Nothi
 
 ## Sign in
 
-- **Address:** the link you received (`https://….up.railway.app`)
+- **Address:** https://serk-finance-production.up.railway.app
 - **Workspace:** `demo`
 - **Password:** supplied separately. Change it from your profile after the first sign-in. You can also turn on two-factor authentication there.
 

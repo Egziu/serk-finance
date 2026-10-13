@@ -40,6 +40,13 @@ Evidence is in `test-results/validation-0.3.0/`:
 
 A clean copy of `web/` was built exactly as the Dockerfile `web` stage does (`npm ci --ignore-scripts`, then `npm run build`). It passed.
 
+## Railway staging deployment
+
+- Commit `844d6bc` was built from the `Dockerfile` `platform` stage on Railway (project zippy-emotion, service `serk-finance`, region iad). This was the first real image build, and it succeeded.
+- On start, the deploy log shows migrations applied, then `demo_workspace_created` (7 users), then the API listening.
+- `https://serk-finance-production.up.railway.app/health/ready` returns `{"status":"ready"}`, and the web app is served.
+- `demo-scenarios.mjs` and `demo-smoke.mjs` could not be run against the public URL from this workspace, because its network allowlist blocks `*.up.railway.app`. They passed against the identical build locally (steps 19–20). Run them from any machine with the commands in `docs/testing.md`.
+
 ## Not run here — still required
 
 - **Container build and scan.** The Docker image build, Trivy scan and SBOM were not run, because Docker Hub is unreachable from this workspace. The first Railway build is the first real image build. Refresh the `golang` base-image pin to `1.27.2-bookworm` with its digest.

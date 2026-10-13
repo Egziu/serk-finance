@@ -1,6 +1,6 @@
 # Security controls
 
-Current release: 0.2.2-rc1 — see the "0.2.2-rc1 additions" section at the end and `VALIDATION_0.2.2.md` for current evidence and remaining gates. The 0.2.0-rc2 notes that follow remain accurate unless superseded there. That version added strict environment/TLS configuration, host-only secure cookies, explicit proxy trust, persistent source/account throttling with successful-login reset, password revalidation at issuance, operator lifecycle audit, current approver rechecks and stronger runtime-role validation. The native role checks and public deployment are unverified in this workspace. Older design notes below remain scoped to the initial foundation and do not constitute production approval.
+Current release: 0.3.0-rc1 — see the "0.3.0-rc1 additions" section at the end. For 0.2.2-rc1 see the "0.2.2-rc1 additions" section at the end and `VALIDATION_0.2.2.md` for current evidence and remaining gates. The 0.2.0-rc2 notes that follow remain accurate unless superseded there. That version added strict environment/TLS configuration, host-only secure cookies, explicit proxy trust, persistent source/account throttling with successful-login reset, password revalidation at issuance, operator lifecycle audit, current approver rechecks and stronger runtime-role validation. The native role checks and public deployment are unverified in this workspace. Older design notes below remain scoped to the initial foundation and do not constitute production approval.
 
 # Security architecture and trust boundaries
 
@@ -57,3 +57,12 @@ Staging/production require TOTP and a 32-byte encryption key. Password-only sess
 - **Error disclosure.** Only static snake_case application codes cross the database boundary (`internal/platform/httpapi/errors.go`). PostgreSQL's own messages never reach clients.
 - **Login windows.** Up to 10 attempts per minute per (tenant, email, source) and 50 per 15 minutes per (tenant, email) across all sources. Behind a proxy or ingress, set `SERK_TRUSTED_PROXY_CIDRS`; otherwise every client shares the proxy's source window.
 - **Trust boundary of `serk_auth`.** Password (argon2id) and TOTP verification happen in the API process, because PostgreSQL cannot compute argon2id. The `serk_auth` role can therefore issue a session for any user of its tenant, and its credential is equivalent to the ability to sign in as anyone. Keep `serk_auth_login` out of every environment except the API, restrict it by network (`pg_hba.conf`), rotate it, and alert on use from unexpected hosts. A separate verifier service is on the roadmap.
+
+## 0.3.0-rc1 additions
+
+- **Module switches.** Disabling a module removes its permissions inside `security.can`, `security.has` and `security.held_permissions`, so the switch is enforced by the database and not only by the interface. Changes need `configuration.manage` and a reason, and they are audited.
+- **Integrity role.** `serk_integrity` (NOLOGIN, BYPASSRLS) owns only `ledger.integrity_status_core()` and `ledger.posted_snapshot_mismatches()`. Every query filters on `security.company()`; the results are counts; EXECUTE is granted only to `serk_owner`. The runtime roles cannot call them.
+- **Password change.** The API verifies the current password. The database applies the change only if the stored hash is unchanged and the session is live, then revokes all of the user's sessions. The change is rate-limited per session, uses the same argon2id parameters as before, and is recorded in `security.admin_events`.
+- **Railway launcher.** `cmd/platform` holds operator credentials only while migrating and creating the runtime logins. The logins are created NOSUPERUSER NOBYPASSRLS with passwords of 24 characters or more, which must differ. The operator variables are unset before the HTTP server starts.
+- **TLS exemption.** The database connection may skip TLS only for `*.railway.internal` hosts with `SERK_DB_PRIVATE_NETWORK=true`. That traffic stays on Railway's encrypted private network.
+- **MFA.** Staging can disable mandatory MFA with `SERK_REQUIRE_MFA=false`, for accountant testing only. Production ignores the setting.

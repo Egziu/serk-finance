@@ -1,3 +1,12 @@
+# 0.3.0-rc1
+
+- Company module switches (053): eight modules can be switched on or off by `configuration.manage`, with a reason and an audit record. They are enforced in `security.can/has/held_permissions`. The navigation is permission- and module-aware, and there is a new Modules & features page.
+- Ethiopian fiscal year (053): Hamle–Sene, 13 periods including Pagume, with exact Gregorian conversion. Available as an option in the fiscal-year form and in provisioning.
+- Posting integrity check (054): runs company-scoped as `serk_integrity`, so preparers no longer need `audit.read`.
+- Self-service password change (055): `POST /api/v1/profile/password` and a Profile form. It revokes all sessions.
+- `cmd/platform`, a single-container Railway launcher; Railway private-network TLS exemption; staging MFA switch; the Ethiopian demo workspace seed; `docs/RAILWAY.md` and `docs/ACCOUNTANT_TEST_GUIDE.md`.
+- Tests: controls-022 (24 cases), Ethiopian period tests, password-change test, demo browser smoke test and HTTP scenario suite.
+
 # 0.2.2-rc1
 
 - First native verification: Go 1.27.2 build and race-enabled suite on PostgreSQL 17.10 (all 52 top-level tests, including the 8 native concurrency tests), SQL suites on native PostgreSQL and PGlite, real-Chromium MFA end-to-end run.

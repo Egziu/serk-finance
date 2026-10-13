@@ -1,8 +1,12 @@
-# SERK Finance ERP — 0.2.2-rc1
+# SERK Finance ERP — 0.3.0-rc1
 
-IFRS-oriented accounting and ERP for businesses in Ethiopia and Africa: double-entry ledger with maker-checker approval, sales, purchases, inventory, payroll, VAT, period and year-end controls, and a hash-chained audit trail. Start with `RELEASE_NOTES.md`, `VALIDATION_0.2.2.md` and `docs/ROADMAP.md`.
+IFRS-oriented accounting and ERP for businesses in Ethiopia and Africa: double-entry ledger with maker-checker approval, sales, purchases, inventory, payroll, VAT, period and year-end controls, and a hash-chained audit trail. Start with `RELEASE_NOTES.md`, `VALIDATION_0.3.0.md` and `docs/ROADMAP.md`. Accountants testing the hosted demo should read `docs/ACCOUNTANT_TEST_GUIDE.md`; operators deploying to Railway should read `docs/RAILWAY.md`.
 
 This is a release candidate verified on native PostgreSQL 17 and a real browser. It is **not** approved for live financial use until the remaining infrastructure gates (image build/scan, restore/PITR, capacity) and independent accountant/security acceptance are complete.
+
+## Deploy for testing (Railway)
+
+One service built from this repository's `Dockerfile` (target `platform`) plus a Railway PostgreSQL service. On start it migrates, creates the runtime logins, seeds the Ethiopian demo workspace when `SERK_DEMO_SEED=ethiopia`, and serves the app. Variables and steps: `docs/RAILWAY.md`.
 
 ## Run locally
 
@@ -27,7 +31,7 @@ For a persistent database set `MIGRATOR_DATABASE_URL`, run `go run ./cmd/migrate
 4. A configuration manager enters payroll brackets, offsets, pension percentages, frequency, and effective dates. A different configuration manager approves the policy. No statutory tax/pension rates are assumed. Obtain current accountant/localization approval for actual policies.
 5. The preparer saves a document, reviews it, and submits it. A different authorized person approves and posts it. Payments and reversals have their own review and independent approval. Review the document preview before authorizing an action.
 
-Module preparers need the module's read/manage permissions, ledger read, audit read for reconciliation, and journal create/submit permissions. Approvers also need journal approve/post with suitable limits. Configuration permissions are separately controlled.
+Module preparers need the module's read/manage permissions, ledger read, and journal create/submit permissions. Modules can be switched off per company under Modules & features. Approvers also need journal approve/post with suitable limits. Configuration permissions are separately controlled.
 
 The local Docker seed includes an administrator, accountant, finance approver, and restricted configuration reviewer so payroll rules can be reviewed by a second identity. Use distinct real people and credentials for production.
 

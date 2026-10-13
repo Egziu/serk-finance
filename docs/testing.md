@@ -1,6 +1,15 @@
 # Testing and evidence
 
-## Current: 0.2.2-rc1
+## Current: 0.3.0-rc1
+
+0.3.0 adds `tests/profile_password_test.go`, the F1 and E1 cases in `tests/controls-022.mjs` and `internal/provisioning/periods_test.go`. Against a running demo deployment, local or Railway:
+
+```bash
+SERK_BASE_URL=https://<host> SERK_DEMO_PASSWORD=… node tests/demo-scenarios.mjs   # HTTP scenarios from the accountant guide
+SERK_BASE_URL=https://<host> SERK_DEMO_PASSWORD=… node tests/demo-smoke.mjs       # browser: per-role navigation and module switch
+```
+
+## 0.2.2-rc1
 
 Evidence for this release is in `test-results/validation-0.2.2/` (`summary.tsv` lists every step, exit code and duration) and is summarised in `VALIDATION_0.2.2.md`.
 

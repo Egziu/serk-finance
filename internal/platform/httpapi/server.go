@@ -152,6 +152,7 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /api/v1/profile/mfa", s.profileMFAStatus)
 	m.HandleFunc("POST /api/v1/profile/mfa/enable", s.profileMFAEnable)
 	m.HandleFunc("POST /api/v1/profile/mfa/disable", s.profileMFADisable)
+	m.HandleFunc("POST /api/v1/profile/password", s.profilePassword)
 	m.HandleFunc("GET /api/v1/finance/settings", s.financeSettings)
 	m.HandleFunc("POST /api/v1/finance/settings", s.financeConfigure)
 	m.HandleFunc("POST /api/v1/invoicing/invoices/{id}/{action}", s.invoiceAction)

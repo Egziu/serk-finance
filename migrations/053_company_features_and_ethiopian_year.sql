@@ -182,6 +182,3 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ledger.meskerem_one(integer),ledger.create_ethiopian_fiscal_year(text,date) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ledger.meskerem_one(integer),ledger.create_ethiopian_fiscal_year(text,date) TO serk_api;
-
-CREATE OR REPLACE FUNCTION security.release_version() RETURNS text LANGUAGE sql IMMUTABLE
-SET search_path=pg_catalog,pg_temp AS $$ SELECT '0.3.0-rc1'::text $$;

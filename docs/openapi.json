@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SERK Finance ERP",
-    "version": "0.2.2-rc1",
+    "version": "0.3.0-rc1",
     "description": "Implemented endpoints only. This build is not production approved. See docs/implementation-status.md."
   },
   "servers": [
@@ -4520,6 +4520,193 @@
           }
         },
         "description": "Query currency, date. Latest recorded rate on or before the date and within the maximum rate age (functional currency per one unit); null when none."
+      }
+    },
+    "/api/v1/profile/password": {
+      "post": {
+        "operationId": "profilePassword_post",
+        "summary": "Change own password (revokes all sessions)",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "current_password",
+                  "new_password"
+                ],
+                "properties": {
+                  "current_password": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 14,
+                    "maxLength": 256
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/features": {
+      "get": {
+        "operationId": "listFeatures_get",
+        "summary": "List company modules and whether each is enabled",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        }
+      },
+      "post": {
+        "operationId": "setFeature_post",
+        "summary": "Switch a company module on or off (configuration.manage)",
+        "parameters": [
+          {
+            "name": "X-Company-ID",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful result. Money values are exact minor-unit strings."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission or CSRF denied"
+          },
+          "409": {
+            "description": "Version, state, duplicate or idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "feature",
+                  "enabled",
+                  "reason"
+                ],
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "enum": [
+                      "sales",
+                      "purchases",
+                      "inventory",
+                      "payroll",
+                      "taxes",
+                      "multi_currency",
+                      "adjustments",
+                      "year_end"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "See the current workflow examples and required exact string amounts in RELEASE_NOTES.md."
+            }
+          }
+        }
       }
     }
   },

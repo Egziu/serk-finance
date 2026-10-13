@@ -11,7 +11,7 @@ Two services run in one Railway project:
 
 ## What happens on every start (`cmd/platform`)
 
-1. Migrations 001–053 are applied with the owner connection. Already-applied files are checksum-verified.
+1. Migrations 001–055 are applied with the owner connection. Already-applied files are checksum-verified.
 2. The two unprivileged logins `serk_api_login` and `serk_auth_login` are created or updated. They get no superuser, no create-role and no RLS bypass.
 3. If `SERK_DEMO_SEED=ethiopia` and the workspace `demo` does not exist yet, the Ethiopian test workspace is provisioned (see `docs/ACCOUNTANT_TEST_GUIDE.md`). It is never overwritten.
 4. The API starts on `$PORT` using only the unprivileged logins. The operator URL is removed from the process environment first.

@@ -1415,7 +1415,7 @@ button.compact { padding: 6px 12px; font-size: 12px; }
 .profile-facts .wide-fact { grid-column: 1 / -1; }
 .profile-facts .mono { font-size: 11px; }
 .verified { display: inline-flex; align-items: center; gap: 5px; color: var(--green); }
-.profile-modal h3 { margin: 0 0 10px; font-size: 13px; font-weight: 550; }
+.profile-modal h3 { margin: 18px 0 10px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 550; }
 .permission-list, .company-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
 .permission-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .permission-list li.yes svg { color: var(--green); }

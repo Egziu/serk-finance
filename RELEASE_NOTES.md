@@ -1,3 +1,42 @@
+# 0.3.0-rc1 — accountant test release: module switches, Ethiopian fiscal year, Railway deployment
+
+This candidate prepares Serk Finance for hands-on testing by accountants. It adds role-aware module switches, the Ethiopian fiscal calendar, a ready-to-test Ethiopian demo workspace and a single-service Railway deployment. Everything in 0.2.2-rc1 still applies.
+
+## Flexible, permission-controlled modules (migration 053)
+
+- **Module switches per company.** An administrator with `configuration.manage` can switch Sales, Purchases, Inventory, Payroll, Taxes, Multi-currency, Adjustments and Year-end on or off under **Modules & features**. A reason is required, and every change is audited.
+- **Enforced in the database, not only hidden.** A disabled module removes its permissions from every user of the company inside `security.can`, `security.has` and `security.held_permissions`. Direct API calls are refused with `permission_denied`. Disabling Multi-currency refuses foreign-currency manual journals. Disabling Year-end refuses year-close requests. Data is kept; switching a module back on restores access.
+- **Navigation follows each user's permissions.** The menu shows a page only when the user holds a permission for it and its module is on. A payroll officer sees only payroll, and an auditor sees reports and audit history.
+
+## Ethiopian fiscal year (migration 053)
+
+- A fiscal year can now follow the Ethiopian calendar: Hamle 1 to Sene 30, in 13 periods (Hamle, Nehase, Pagume, then Meskerem to Sene). Pagume has 5 or 6 days. Gregorian dates are computed exactly, including the leap-year shift of Meskerem 1 to 12 September.
+- The fiscal-year form defaults to the Ethiopian calendar; Gregorian years remain available. Provisioning accepts `"calendar": "ETHIOPIAN"`.
+
+## Posting by preparers without audit rights (migration 054)
+
+- Module postings check ledger integrity before posting. That check required the preparer to hold `audit.read` and only saw rows the preparer could read, so payroll officers and sales clerks could not submit. The check now runs company-wide as a dedicated login-less role, `serk_integrity`, which can only be called from owner functions and returns counts, never rows. The integrity report itself still requires `audit.read`.
+
+## Self-service password change (migration 055)
+
+- **Profile → Change password.** The user must enter the current password, and the new one must be 14–256 characters and different. Every session of the user is revoked, and the change is recorded in the administrative log.
+
+## Demo workspace and Railway deployment
+
+- **`cmd/platform`.** A single-container launcher. It applies migrations, creates or rotates the two runtime database logins, optionally seeds the demo workspace, then serves the API and web app with the runtime roles only. The operator credentials are removed from the environment before serving. See `docs/RAILWAY.md`.
+- **Ethiopian demo** (`SERK_DEMO_SEED=ethiopia`, workspace `demo`). Abay Demo Trading PLC with two branches, EFY 2019, an IFRS-for-SMEs chart of accounts, and VAT 15%. A sample PAYE policy follows the 2025 amendment bands. Seven role-based users are created: Administrator, Chief Accountant, Accountant, Finance Manager, Payroll Officer, Sales Clerk and Auditor. Opening capital, a purchase and a sale are already posted. Seeding is idempotent.
+- **Railway private networking.** The database connection may skip TLS only when `SERK_DB_PRIVATE_NETWORK=true` and the host is `*.railway.internal`. Every other host still requires TLS.
+- **MFA in staging.** Staging may turn mandatory MFA off with `SERK_REQUIRE_MFA=false` for accountant testing. Production always requires MFA.
+- **Accountant test guide.** `docs/ACCOUNTANT_TEST_GUIDE.md` covers the users, the company and 11 test scenarios.
+
+## Tests added
+
+- `tests/controls-022.mjs`, now 24 cases: module switches (F1) and the Ethiopian year (E1).
+- `internal/provisioning/periods_test.go`: Ethiopian period boundaries across leap years.
+- `tests/profile_password_test.go`: password change.
+- `tests/demo-smoke.mjs`: browser test of navigation per role, with a module switched off and on.
+- `tests/demo-scenarios.mjs`: the guide's journal, VAT, VAT settlement, payroll, auditor and integrity scenarios, run over HTTP against a local or Railway deployment.
+
 # 0.2.2-rc1 — verified on native PostgreSQL, security and IFRS hardening
 
 0.2.1-rc1 had never been compiled or run on a real PostgreSQL server. This candidate was built with Go 1.27.2 and tested against PostgreSQL 17.10, with a real Chromium browser end to end. That testing, plus an independent security review and an independent IFRS accounting review, found the defects below. All of them are fixed in this release, and each fix has a regression test.

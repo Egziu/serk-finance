@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LogOut, ShieldCheck, X } from "lucide-react";
+import { KeyRound, LogOut, ShieldCheck, X } from "lucide-react";
 import type { Reference, Session } from "./types";
 import { api } from "./api";
 
@@ -39,6 +39,13 @@ export function ProfileModal({session,identity,company,locked,onClose,onSignOut}
   if(!password||status?.enrolled&&currentCode.length!==6||!disable&&newCode.length!==6){setError("Enter your password and the required authenticator codes.");return}
   setBusy(true);setError("");try{await api("/profile/mfa/"+(disable?"disable":"enable"),company,{method:"POST",csrf:session.csrf_token,body:{password,current_code:currentCode,secret:disable?"":status?.secret,code:disable?"":newCode}});setPassword("");setCurrentCode("");setNewCode("");clearIdentity();window.location.reload();}catch(e){setError(e instanceof Error?e.message:"Could not update authentication.")}finally{setBusy(false)}
  }
+ const [pwOpen,setPwOpen]=useState(false),[pwCurrent,setPwCurrent]=useState(""),[pwNew,setPwNew]=useState(""),[pwConfirm,setPwConfirm]=useState(""),[pwError,setPwError]=useState("");
+ async function changePassword(){
+  if(pwNew.length<14){setPwError("The new password needs at least 14 characters.");return}
+  if(pwNew!==pwConfirm){setPwError("The new passwords do not match.");return}
+  if(pwNew===pwCurrent){setPwError("Choose a password different from the current one.");return}
+  setBusy(true);setPwError("");try{await api("/profile/password",company,{method:"POST",csrf:session.csrf_token,body:{current_password:pwCurrent,new_password:pwNew}});setPwCurrent("");setPwNew("");setPwConfirm("");clearIdentity();window.location.reload();}catch(e){setPwError(e instanceof Error?e.message:"Could not change the password.")}finally{setBusy(false)}
+ }
  return <div className="overlay"><section className="modal profile-modal" role="dialog" aria-modal="true" aria-label="Your profile"><button className="icon-btn" aria-label="Close profile" onClick={onClose}><X size={18}/></button><h2>{session.name}</h2><p>{identity?.email}</p><h3><ShieldCheck size={17}/> Two-factor authentication</h3>
  {error&&<div className="error" role="alert">{error}</div>}
  <p>{status?.enrolled?"Authenticator enabled.":"Authenticator not enrolled."}{status?.required?" Your organization requires two-factor authentication.":""}</p>
@@ -48,5 +55,13 @@ export function ProfileModal({session,identity,company,locked,onClose,onSignOut}
  <label>New authenticator secret<input readOnly value={status.secret||""}/></label><p>Add this secret to your authenticator app, then enter its confirmation code.</p><label>New authenticator code<input required inputMode="numeric" pattern="[0-9]{6}" value={newCode} onChange={e=>setNewCode(e.target.value)}/></label>
  {status.dev_code&&<p>Development confirmation code: {status.dev_code}</p>}<button className="primary" disabled={busy||locked}>Save authenticator</button>
  {status.enrolled&&!status.required&&<button type="button" disabled={busy||locked} onClick={()=>void change(true)}>Disable authenticator</button>}</form>}
+ <h3><KeyRound size={17}/> Password</h3>
+ <button className="secondary" disabled={busy||locked} onClick={()=>{setPwOpen(!pwOpen);setPwCurrent("");setPwNew("");setPwConfirm("");setPwError("");}}>Change password</button>
+ {pwOpen&&<form className="finance-form" aria-label="Change password" onSubmit={e=>{e.preventDefault();void changePassword()}}><p>Changing your password signs you out everywhere. Use at least 14 characters.</p>
+ {pwError&&<div className="error" role="alert">{pwError}</div>}
+ <label>Current password<input autoComplete="current-password" required type="password" value={pwCurrent} onChange={e=>setPwCurrent(e.target.value)}/></label>
+ <label>New password<input autoComplete="new-password" required minLength={14} maxLength={256} type="password" value={pwNew} onChange={e=>setPwNew(e.target.value)}/></label>
+ <label>Confirm new password<input autoComplete="new-password" required minLength={14} maxLength={256} type="password" value={pwConfirm} onChange={e=>setPwConfirm(e.target.value)}/></label>
+ <button className="primary" disabled={busy||locked}>Save new password</button></form>}
  <div className="profile-actions"><button className="secondary" onClick={onClose}>Close</button><button className="primary" disabled={busy||locked} onClick={onSignOut}><LogOut size={15}/> Sign out</button></div></section></div>;
 }

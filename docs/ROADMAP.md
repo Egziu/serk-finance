@@ -11,11 +11,15 @@ Decisions recorded with the product owner (2026-10-12):
 | Interface languages | English for now. Keep every string in one place so other languages can be added without code changes. |
 | Deployment | **Cloud and offline.** Hosted multi-company web app, plus a local office server that keeps working without internet and synchronises later. |
 
-## Phase 1 — Verified, hardened core (0.2.2-rc1, this release)
+## Phase 1 — Verified, hardened core (0.2.2-rc1)
 
 Native PostgreSQL and browser verification, security and IFRS review fixes, year-end close, period reopen, controlled adjustments, VAT report, FX rate controls and statement classification. See `RELEASE_NOTES.md` and `VALIDATION_0.2.2.md`.
 
 Remaining gates outside this workspace: container build and scan, restore/PITR on the target host, capacity test, and independent accountant and security sign-off.
+
+## Accountant test release (0.3.0-rc1, this release)
+
+Per-company module switches enforced in the database, permission-aware navigation, Ethiopian fiscal year, self-service password change, single-service Railway deployment and a seeded Ethiopian demo workspace with seven role-based users. Accountant findings from this release feed Phase 2.
 
 ## Phase 2 — Ethiopia localisation (next)
 
@@ -24,7 +28,7 @@ All rates come from versioned, dual-approved policy tables (as payroll policies 
 1. **Ethiopian calendar.**
    - Fiscal year Hamle 1 – Sene 30, with 12 periods of 30 days plus Pagume (5/6 days).
    - Dates shown in both calendars and stored as Gregorian.
-   - The current fiscal-year generator only makes Gregorian-month periods.
+   - Done in 0.3.0: Ethiopian fiscal years and periods. Remaining: showing dates in both calendars, and payroll by Ethiopian month.
 2. **VAT.**
    - 15% standard rate, plus zero-rated and exempt as separate treatments.
    - Sequential tax-invoice numbering per branch with no gaps, and voids recorded.

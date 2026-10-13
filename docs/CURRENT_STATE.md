@@ -1,6 +1,13 @@
 # Current state
 
-Current delivery: **0.2.2-rc1** (schema marker `0.2.2-rc1`, migrations 001–052).
+Current delivery: **0.3.0-rc1** (schema marker `0.3.0-rc1`, migrations 001–055). Evidence: `VALIDATION_0.3.0.md`.
+
+## New in 0.3.0-rc1
+
+- Per-company module switches (Sales, Purchases, Inventory, Payroll, Taxes, Multi-currency, Adjustments, Year-end). They are enforced in the database permission functions, and the navigation follows each user's permissions.
+- Ethiopian fiscal year: Hamle to Sene, 13 periods including Pagume.
+- Self-service password change.
+- Single-service Railway deployment (`cmd/platform`) with an Ethiopian demo workspace for accountant testing (`docs/ACCOUNTANT_TEST_GUIDE.md`).
 
 ## What exists
 

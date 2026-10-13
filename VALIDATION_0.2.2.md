@@ -1,4 +1,4 @@
-# Validation — 0.2.2-rc1
+# Validation — 0.2.2-rc1 (historical; current: `VALIDATION_0.3.0.md`)
 
 **Decision: release candidate.** Every check that can run without Docker Hub or target infrastructure passed on native PostgreSQL. Production financial use is still blocked until the gates in the last section are complete.
 

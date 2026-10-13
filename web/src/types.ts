@@ -40,7 +40,9 @@ export type Reference = {
   periods: Period[];
   dimensions?: Dimension[];
   currencies: { code: string; minor_units: number }[];
-  permissions: { create: boolean; audit: boolean; close: boolean; users?: boolean; roles?: boolean };
+  permissions: { create: boolean; audit: boolean; close: boolean; users?: boolean; roles?: boolean; configure?: boolean };
+  held?: string[];
+  features?: Record<string, boolean>;
 };
 export type LineDimension = { kind: string; dimension_id: string };
 export type Journal = {

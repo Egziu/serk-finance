@@ -52,10 +52,8 @@ func Open(ctx context.Context, dsn, role string) (*Pool, error) {
 		c.MaxConns = 1
 		c.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 	}
-	if environment != "development" {
-		if c.ConnConfig.TLSConfig == nil || c.ConnConfig.TLSConfig.InsecureSkipVerify || len(c.ConnConfig.Fallbacks) > 0 {
-			return nil, errors.New("production requires verified database TLS without fallback")
-		}
+	if e := RequireTLS(environment, &c.ConnConfig.Config); e != nil {
+		return nil, e
 	}
 	p, e := pgxpool.NewWithConfig(ctx, c)
 	if e != nil {
@@ -98,7 +96,7 @@ func Open(ctx context.Context, dsn, role string) (*Pool, error) {
 }
 
 // ReleaseVersion is the schema marker this binary requires (security.release_version()).
-const ReleaseVersion = "0.2.2-rc1"
+const ReleaseVersion = "0.3.0-rc1"
 
 func (p *Pool) Transaction(ctx context.Context, fn func(pgx.Tx) error) error {
 	tx, e := p.BeginTx(ctx, pgx.TxOptions{})

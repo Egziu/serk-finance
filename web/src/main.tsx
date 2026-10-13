@@ -14,6 +14,7 @@ const PeriodsPage = lazy(() => import("./pages/PeriodsPage").then(m=>({default:m
 const TrialBalancePage = lazy(() => import("./pages/TrialBalancePage").then(m=>({default:m.TrialBalancePage})));
 const CurrenciesPage = lazy(() => import("./pages/CurrenciesPage").then(m=>({default:m.CurrenciesPage})));
 const JournalDetail = lazy(() => import("./pages/JournalDetail").then(m=>({default:m.JournalDetail})));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then(m=>({default:m.SettingsPage})));
 const PeriodEndPage = lazy(() => import("./pages/PeriodEndPage").then(m=>({default:m.PeriodEndPage})));
 const AdjustmentsPage = lazy(() => import("./pages/AdjustmentsPage").then(m=>({default:m.AdjustmentsPage})));
 const JournalsPage = lazy(() => import("./pages/JournalsPage").then(m=>({default:m.JournalsPage})));
@@ -48,6 +49,7 @@ import {
   UserCog,
   Scale,
   CalendarCheck2,
+  Settings2,
 } from "lucide-react";
 import { api, APIError } from "./api";
 import type { Session, Reference, Journal, Trial, Audit } from "./types";
@@ -347,6 +349,10 @@ function App() {
         }}
       />
     );
+  // Navigation follows the caller's effective permissions and the company's module switches.
+  const held = (p: string) => !!ref?.held?.includes(p);
+  const feature = (f: string) => ref?.features?.[f] !== false;
+  const mod = (f: string, p: string) => feature(f) && held(p);
   const navItem = (v: string, label: string, Icon: any, active: string[] = [v], onClick?: () => void) => (
     <button
       key={v}
@@ -392,11 +398,11 @@ function App() {
           <div className="nav-group">Operate</div>
           {navItem("dashboard", "Dashboard", Command)}
           {navItem("journals", "Journals", BookOpen, ["journals", "detail", "new"])}
-            {navItem("sales", "Sales & AR", FileText)}
-            {navItem("purchases", "Purchases & AP", FileText)}
-            {navItem("payroll", "Payroll & HR", Users)}
-            {navItem("inventory", "Inventory & Items", Package)}
-            {navItem("adjustments", "Adjustments", Scale)}
+          {mod("sales", "sales.read") && navItem("sales", "Sales & AR", FileText)}
+          {mod("purchases", "purchases.read") && navItem("purchases", "Purchases & AP", FileText)}
+          {mod("payroll", "payroll.read") && navItem("payroll", "Payroll & HR", Users)}
+          {mod("inventory", "inventory.read") && navItem("inventory", "Inventory & Items", Package)}
+          {feature("adjustments") && ["taxes.manage", "payroll.manage", "sales.manage", "purchases.manage", "inventory.manage", "configuration.manage"].some(held) && navItem("adjustments", "Adjustments", Scale)}
           <div className="nav-group">Report</div>
           {navItem("statements", "Financial statements", FileSpreadsheet)}
           {navItem("trial", "Trial balance", FileText)}
@@ -406,14 +412,15 @@ function App() {
           })}
           <div className="nav-group">Control</div>
           {navItem("periods", "Fiscal periods", CalendarDays)}
-          {navItem("period-end", "Year-end & reopen", CalendarCheck2)}
-          {navItem("currencies", "Currencies & Rates", Calculator)}
-          {navItem("taxes", "Taxes & Rates", Calculator)}
+          {ref?.permissions.close && navItem("period-end", "Year-end & reopen", CalendarCheck2)}
+          {feature("multi_currency") && navItem("currencies", "Currencies & Rates", Calculator)}
+          {mod("taxes", "taxes.read") && navItem("taxes", "Taxes & Rates", Calculator)}
           {navItem("accounts", "Chart of accounts", ListTree)}
           {ref?.permissions.audit && navItem("integrity", "Ledger integrity", ShieldCheck)}
           {ref?.permissions.audit && navItem("audit", "Audit history", History)}
-          {(ref?.permissions.users || ref?.permissions.roles) && <div className="nav-group">Administer</div>}
+          {(ref?.permissions.users || ref?.permissions.roles || ref?.permissions.configure) && <div className="nav-group">Administer</div>}
           {(ref?.permissions.users || ref?.permissions.roles) && navItem("access", "Users & roles", UserCog)}
+          {ref?.permissions.configure && navItem("settings", "Modules & features", Settings2)}
         </nav>
         <div className="sidebar-foot">
           <div className="control-mark">
@@ -461,6 +468,7 @@ function App() {
                   taxes: "Taxes & Rates",
                   adjustments: "Adjustments",
                   "period-end": "Year-end & reopen",
+                  settings: "Modules & features",
                 } as Record<string, any>
               )[view] ?? "Workspace"}
             </strong>
@@ -593,6 +601,7 @@ function App() {
           {current && view === "payroll" && <PayrollPage currency={current.currency} userId={session.user_id} company={company} csrf={session.csrf_token} currencyPlaces={places(current.currency)} />}
           {current && view === "taxes" && <TaxesPage currency={current.currency} currencyPlaces={places(current.currency)} company={company} csrf={session.csrf_token} />}
           {current && view === "currencies" && <CurrenciesPage company={company} csrf={session.csrf_token} currency={current.currency} />}
+          {current && view === "settings" && <SettingsPage company={company} csrf={session.csrf_token} canConfigure={!!ref?.permissions.configure} onChanged={async () => { const scope = company; const updated = await api<Reference>("/accounting/reference", scope); if (scopeRef.current === scope) setRef(updated); }} />}
           {current && view === "adjustments" && <AdjustmentsPage company={company} csrf={session.csrf_token} reference={ref} me={session} places={places(current.currency)} currency={current.currency} />}
           {current && view === "period-end" && <PeriodEndPage key={company} company={company} csrf={session.csrf_token} reference={ref} me={session} places={places(current.currency)} currency={current.currency} onChanged={async () => { const scope = company; const updated = await api<Reference>("/accounting/reference", scope); if (scopeRef.current === scope) setRef(updated); }} />}
           {view === "periods" && <PeriodsPage key={company} reference={ref} company={company} csrf={session.csrf_token} onClosed={async () => { const scope = company; const updated = await api<Reference>("/accounting/reference", scope); if (scopeRef.current === scope) setRef(updated); }} refreshReference={async () => { const scope = company; const updated = await api<Reference>("/accounting/reference", scope); if (scopeRef.current === scope) setRef(updated); }} />}

@@ -236,6 +236,27 @@ try{
   assert.ok(b.assets.non_current_assets.some(x=>x.id===intangible));assert.equal(b.is_balanced,true);
  });
 
+ await check('F1 a switched-off module is refused for everyone and returns when switched back on',async()=>{
+  await reject(()=>m.call('fxclerk',"SELECT organization.set_feature('payroll',false,'Not allowed') AS value"),'42501');
+  const before=(await f.query('maker','SELECT count(*)::int AS n FROM payroll.employees'))[0].n;assert.ok(before>0);
+  await f.query('maker',"SELECT organization.set_feature('payroll',false,'Company does not run payroll here')");
+  assert.equal((await f.query('maker','SELECT count(*)::int AS n FROM payroll.employees'))[0].n,0);
+  await reject(()=>m.call('maker',"SELECT finance.list_documents('PAYROLL') AS value"),'42501');
+  const ref=await m.call('maker','SELECT ledger.reference_data() AS value');assert.equal(ref.features.payroll,false);assert.ok(!ref.held.includes('payroll.read'));
+  await f.query('maker',"SELECT organization.set_feature('payroll',true,'Payroll back in use')");
+  assert.equal((await f.query('maker','SELECT count(*)::int AS n FROM payroll.employees'))[0].n,before);
+  await f.query('maker',"SELECT organization.set_feature('multi_currency',false,'Local currency only')");
+  await reject(()=>f.command('maker','c022:fx-off','create',{...f.payload('1000','2026-09-24'),currency:'USD',fx_rate:'120'}),'55000','feature_disabled');
+  await f.query('maker',"SELECT organization.set_feature('multi_currency',true,'Foreign currency back')");
+  const ev=(await db.query("SELECT count(*)::int AS n FROM audit.events WHERE action LIKE 'company_features.%'")).rows[0].n;assert.ok(ev>=4);
+ });
+ await check('E1 an Ethiopian fiscal year runs Hamle 1 – Sene 30 with Pagume',async()=>{
+  await reject(()=>m.call('maker',"SELECT ledger.create_ethiopian_fiscal_year('BAD','2027-07-01') AS value"),'22008','not_hamle_one');
+  const fy=await m.call('maker',"SELECT ledger.create_ethiopian_fiscal_year('EFY2020','2027-07-08') AS value");
+  const p=(await db.query("SELECT name,start_date::text s,end_date::text e FROM ledger.periods WHERE fiscal_year_id=$1 ORDER BY start_date",[fy])).rows;
+  assert.equal(p.length,13);assert.deepEqual([p[2].name,p[2].s,p[2].e],['03 Pagume','2027-09-06','2027-09-11']);assert.deepEqual([p[12].name,p[12].e],['13 Sene','2028-07-07']);
+ });
+
  // ---------------------------------------------------------------- year end (separate tenant)
  const g=await fixture(db,'c022-year');
  const re=randomUUID();

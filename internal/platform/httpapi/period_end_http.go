@@ -122,3 +122,24 @@ func (s *Server) recordedRate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.query(w, r, `SELECT jsonb_build_object('rate',ledger.recorded_rate($1,$2::date)::text)`, q.Get("currency"), q.Get("date"))
 }
+
+func (s *Server) listFeatures(w http.ResponseWriter, r *http.Request) {
+	s.query(w, r, `SELECT organization.list_features()`)
+}
+
+func (s *Server) setFeature(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Feature string `json:"feature"`
+		Enabled *bool  `json:"enabled"`
+		Reason  string `json:"reason"`
+	}
+	if e := decode(w, r, &in); e != nil {
+		s.fail(w, r, e)
+		return
+	}
+	if in.Enabled == nil {
+		s.fail(w, r, &problem{400, "invalid_request"})
+		return
+	}
+	s.query(w, r, `SELECT organization.set_feature($1,$2,$3)`, in.Feature, *in.Enabled, in.Reason)
+}

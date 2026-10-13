@@ -212,18 +212,25 @@ func (s *Server) createFiscalYear(w http.ResponseWriter, r *http.Request) {
 		Name      string `json:"name"`
 		StartDate string `json:"start_date"`
 		EndDate   string `json:"end_date"`
+		Calendar  string `json:"calendar,omitempty"`
 	}
 	if e := decode(w, r, &in); e != nil {
 		s.fail(w, r, e)
 		return
 	}
-	if len(in.Name) < 1 || len(in.Name) > 200 || len(in.StartDate) != 10 || len(in.EndDate) != 10 {
+	ethiopian := in.Calendar == "ETHIOPIAN"
+	if len(in.Name) < 1 || len(in.Name) > 200 || len(in.StartDate) != 10 || (!ethiopian && len(in.EndDate) != 10) ||
+		(in.Calendar != "" && in.Calendar != "GREGORIAN" && !ethiopian) {
 		s.fail(w, r, &problem{400, "invalid_fiscal_year"})
 		return
 	}
 
 	var id string
 	e := s.scoped(r, func(tx pgx.Tx) error {
+		if ethiopian {
+			// Hamle 1 – Sene 30 with Ethiopian month periods (13 including Pagume).
+			return tx.QueryRow(r.Context(), `SELECT ledger.create_ethiopian_fiscal_year($1, $2::date)`, in.Name, in.StartDate).Scan(&id)
+		}
 		return tx.QueryRow(r.Context(), `SELECT ledger.create_fiscal_year($1, $2::date, $3::date)`, in.Name, in.StartDate, in.EndDate).Scan(&id)
 	})
 	if e != nil {

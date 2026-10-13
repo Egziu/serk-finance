@@ -23,7 +23,7 @@ func Operator(ctx context.Context) (*pgx.Conn, error) {
 	if err != nil {
 		return nil, errors.New("invalid migrator configuration")
 	}
-	if env != "development" && (c.TLSConfig == nil || c.TLSConfig.InsecureSkipVerify || len(c.Fallbacks) > 0) {
+	if RequireTLS(env, &c.Config) != nil {
 		return nil, errors.New("operator connection requires verified database TLS")
 	}
 	c.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol

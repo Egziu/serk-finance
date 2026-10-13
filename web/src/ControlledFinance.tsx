@@ -9,7 +9,7 @@ type Row = { id: string; kind: Kind; state: string; version: number; document_no
 type Line = { item_id: string; quantity: string; price: string; tax_rate_id: string };
 const titles = { INVOICE: "Sales and invoicing", BILL: "Purchases and bills", OPENING: "Inventory and opening balances", PAYROLL: "Payroll and employees" };
 const paths = { INVOICE: "/invoicing/invoices", BILL: "/invoicing/bills", OPENING: "/inventory/openings", PAYROLL: "/payroll/payruns" };
-const mappingLabels: Record<string,string> = { receivable: "Accounts receivable", payable: "Accounts payable", output_tax: "Sales tax payable", input_tax: "Recoverable purchase tax", opening_equity: "Opening balance equity", payroll_expense: "Salary expense", payroll_payable: "Salary payable", payroll_tax: "Payroll tax payable", pension_expense: "Employer pension expense", pension_payable: "Pension payable" };
+const mappingLabels: Record<string,string> = { receivable: "Accounts receivable", payable: "Accounts payable", output_tax: "Output VAT payable", input_tax: "Input VAT recoverable", opening_equity: "Opening balance equity", retained_earnings: "Retained earnings (year-end close)", payroll_expense: "Salary expense", payroll_payable: "Salary payable", payroll_tax: "Payroll tax payable", pension_expense: "Employer pension expense", pension_payable: "Pension payable" };
 const rawMoney = (v: string, p: number) => money(v,p).replaceAll(",", "");
 
 export function ControlledFinance({ company, csrf, currencyPlaces = 2, currency = "ETB", userId = "", kind }: FinanceProps & { kind: Kind }) {

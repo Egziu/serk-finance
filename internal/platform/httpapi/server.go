@@ -173,6 +173,8 @@ func (s *Server) Handler() http.Handler {
 	m.HandleFunc("GET /api/v1/fx-policy", s.fxPolicy)
 	m.HandleFunc("POST /api/v1/fx-policy", s.setFXPolicy)
 	m.HandleFunc("GET /api/v1/exchange-rates/recorded", s.recordedRate)
+	m.HandleFunc("GET /api/v1/organization/features", s.listFeatures)
+	m.HandleFunc("POST /api/v1/organization/features", s.setFeature)
 	m.HandleFunc("POST /api/v1/payroll/policies", s.payrollPolicyCreate)
 	m.HandleFunc("POST /api/v1/payroll/policies/approve", s.payrollPolicyApprove)
 
@@ -221,7 +223,13 @@ func Run() error {
 	}
 	defer a.Close()
 	var mfaKey []byte
-	requireMFA := environment != "development" || os.Getenv("SERK_REQUIRE_MFA") == "true"
+	// Mandatory in production. A staging (test) deployment may set SERK_REQUIRE_MFA=false so
+	// testers can sign in with a password and enrol an authenticator from their profile.
+	requireMFA := environment == "production" || os.Getenv("SERK_REQUIRE_MFA") == "true" ||
+		(environment == "staging" && os.Getenv("SERK_REQUIRE_MFA") != "false")
+	if environment == "staging" && !requireMFA {
+		fmt.Fprintln(os.Stderr, "WARNING: SERK_REQUIRE_MFA=false - two-factor authentication is optional in this staging deployment.")
+	}
 	if requireMFA || os.Getenv("SERK_MFA_KEY") != "" || os.Getenv("SERK_MFA_KEY_FILE") != "" {
 		raw, err := config.Secret("SERK_MFA_KEY")
 		if err != nil {

@@ -19,15 +19,17 @@ type Config struct {
 	Users     []User    `json:"users"`
 }
 type Company struct {
-	Code      string    `json:"code"`
-	Name      string    `json:"name"`
-	Currency  string    `json:"currency"`
-	Country   string    `json:"country"`
-	Branches  []string  `json:"branches"`
-	YearName  string    `json:"year_name"`
-	YearStart string    `json:"year_start"`
-	YearEnd   string    `json:"year_end"`
-	Accounts  []Account `json:"accounts"`
+	Code      string   `json:"code"`
+	Name      string   `json:"name"`
+	Currency  string   `json:"currency"`
+	Country   string   `json:"country"`
+	Branches  []string `json:"branches"`
+	YearName  string   `json:"year_name"`
+	YearStart string   `json:"year_start"`
+	YearEnd   string   `json:"year_end"`
+	// Calendar "ETHIOPIAN" makes Hamle–Sene periods (YearStart must be Hamle 1; YearEnd is derived).
+	Calendar string    `json:"calendar,omitempty"`
+	Accounts []Account `json:"accounts"`
 }
 type Account struct {
 	Code    string `json:"code"`
@@ -35,6 +37,10 @@ type Account struct {
 	Type    string `json:"type"`
 	Normal  string `json:"normal_balance"`
 	Control bool   `json:"control_account"`
+	// Optional IAS 1 presentation class for ASSET/LIABILITY (CURRENT or NON_CURRENT; default CURRENT)
+	// and reporting category (default: the account type).
+	Class    string `json:"statement_class,omitempty"`
+	Category string `json:"reporting_category,omitempty"`
 }
 type Role struct {
 	Name        string   `json:"name"`
@@ -98,34 +104,34 @@ func Create(ctx context.Context, db *pgx.Conn, c Config) (Result, error) {
 			}
 			r.Branches[co.Code+":"+b] = id
 		}
-		if e = tx.QueryRow(ctx, `INSERT INTO ledger.fiscal_years(tenant_id,company_id,name,start_date,end_date) VALUES($1,$2,$3,$4::date,$5::date) RETURNING id`, r.TenantID, cid, co.YearName, co.YearStart, co.YearEnd).Scan(&fy); e != nil {
-			return r, e
-		}
-		start, e := time.Parse("2006-01-02", co.YearStart)
+		periods, e := Periods(co)
 		if e != nil {
 			return r, e
 		}
-		end, e := time.Parse("2006-01-02", co.YearEnd)
-		if e != nil || end.Before(start) || end.Sub(start) > 367*24*time.Hour {
-			return r, fmt.Errorf("invalid fiscal year")
+		if e = tx.QueryRow(ctx, `INSERT INTO ledger.fiscal_years(tenant_id,company_id,name,start_date,end_date) VALUES($1,$2,$3,$4::date,$5::date) RETURNING id`, r.TenantID, cid, co.YearName, periods[0].Start.Format("2006-01-02"), periods[len(periods)-1].End.Format("2006-01-02")).Scan(&fy); e != nil {
+			return r, e
 		}
-		// Calendar-neutral fiscal dates. Monthly Gregorian partitions are a provisioning convenience only.
-		for n := 1; !start.After(end); n++ {
-			next := time.Date(start.Year(), start.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-			last := next.AddDate(0, 0, -1)
-			if last.After(end) {
-				last = end
-			}
+		for _, p := range periods {
 			var id string
-			if e = tx.QueryRow(ctx, `INSERT INTO ledger.periods(tenant_id,company_id,fiscal_year_id,name,start_date,end_date) VALUES($1,$2,$3,$4,$5::date,$6::date) RETURNING id`, r.TenantID, cid, fy, fmt.Sprintf("P%02d", n), start.Format("2006-01-02"), last.Format("2006-01-02")).Scan(&id); e != nil {
+			if e = tx.QueryRow(ctx, `INSERT INTO ledger.periods(tenant_id,company_id,fiscal_year_id,name,start_date,end_date) VALUES($1,$2,$3,$4,$5::date,$6::date) RETURNING id`, r.TenantID, cid, fy, p.Name, p.Start.Format("2006-01-02"), p.End.Format("2006-01-02")).Scan(&id); e != nil {
 				return r, e
 			}
-			r.Periods[co.Code+":"+start.Format("2006-01")] = id
-			start = next
+			r.Periods[co.Code+":"+p.Start.Format("2006-01")] = id
 		}
 		for _, a := range co.Accounts {
 			var id string
-			if e = tx.QueryRow(ctx, `INSERT INTO ledger.accounts(tenant_id,company_id,code,name,type,normal_balance,control_account,reporting_category) VALUES($1,$2,$3,$4,$5,$6,$7,$5) RETURNING id`, r.TenantID, cid, a.Code, a.Name, a.Type, a.Normal, a.Control).Scan(&id); e != nil {
+			category := a.Category
+			if category == "" {
+				category = a.Type
+			}
+			var class any
+			if a.Type == "ASSET" || a.Type == "LIABILITY" {
+				class = "CURRENT"
+				if a.Class == "NON_CURRENT" {
+					class = "NON_CURRENT"
+				}
+			}
+			if e = tx.QueryRow(ctx, `INSERT INTO ledger.accounts(tenant_id,company_id,code,name,type,normal_balance,control_account,reporting_category,statement_class) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, r.TenantID, cid, a.Code, a.Name, a.Type, a.Normal, a.Control, category, class).Scan(&id); e != nil {
 				return r, e
 			}
 			r.Accounts[co.Code+":"+a.Code] = id
@@ -174,4 +180,62 @@ func Create(ctx context.Context, db *pgx.Conn, c Config) (Result, error) {
 		return r, e
 	}
 	return r, nil
+}
+
+// Period is one accounting period of a provisioned fiscal year.
+type Period struct {
+	Name       string
+	Start, End time.Time
+}
+
+// MeskeremOne is Ethiopian new year: 11 September, or 12 September before a Gregorian leap year.
+func MeskeremOne(year int) time.Time {
+	next := year + 1
+	day := 11
+	if (next%4 == 0 && next%100 != 0) || next%400 == 0 {
+		day = 12
+	}
+	return time.Date(year, time.September, day, 0, 0, 0, 0, time.UTC)
+}
+
+var ethiopianMonths = []string{"Meskerem", "Tikimt", "Hidar", "Tahsas", "Tir", "Yekatit", "Megabit", "Miyazya", "Ginbot", "Sene"}
+
+// Periods returns the fiscal periods for a company: Gregorian months between YearStart and
+// YearEnd, or the Ethiopian Hamle–Sene year (13 periods including Pagume) when Calendar is ETHIOPIAN.
+func Periods(co Company) ([]Period, error) {
+	start, e := time.Parse("2006-01-02", co.YearStart)
+	if e != nil {
+		return nil, fmt.Errorf("invalid fiscal year")
+	}
+	if co.Calendar == "ETHIOPIAN" {
+		if !start.Equal(MeskeremOne(start.Year()-1).AddDate(0, 0, 300)) {
+			return nil, fmt.Errorf("ethiopian fiscal year must start on Hamle 1")
+		}
+		m1 := MeskeremOne(start.Year())
+		out := []Period{{"01 Hamle", start, start.AddDate(0, 0, 29)}, {"02 Nehase", start.AddDate(0, 0, 30), start.AddDate(0, 0, 59)}, {"03 Pagume", start.AddDate(0, 0, 60), m1.AddDate(0, 0, -1)}}
+		for i, name := range ethiopianMonths {
+			ps := m1.AddDate(0, 0, 30*i)
+			out = append(out, Period{fmt.Sprintf("%02d %s", i+4, name), ps, ps.AddDate(0, 0, 29)})
+		}
+		return out, nil
+	}
+	if co.Calendar != "" && co.Calendar != "GREGORIAN" {
+		return nil, fmt.Errorf("unknown calendar")
+	}
+	end, e := time.Parse("2006-01-02", co.YearEnd)
+	if e != nil || end.Before(start) || end.Sub(start) > 367*24*time.Hour {
+		return nil, fmt.Errorf("invalid fiscal year")
+	}
+	var out []Period
+	// Calendar-neutral fiscal dates. Monthly Gregorian partitions are a provisioning convenience only.
+	for n := 1; !start.After(end); n++ {
+		next := time.Date(start.Year(), start.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		last := next.AddDate(0, 0, -1)
+		if last.After(end) {
+			last = end
+		}
+		out = append(out, Period{fmt.Sprintf("P%02d", n), start, last})
+		start = next
+	}
+	return out, nil
 }

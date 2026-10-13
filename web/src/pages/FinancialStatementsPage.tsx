@@ -187,7 +187,7 @@ export function FinancialStatementsPage({ company, companyName, currencyPlaces, 
       <div className="page-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--green)", fontWeight: 600 }}>
-            <FileSpreadsheet size={14} /> FINANCIAL STATEMENTS (PEACHTREE / IFRS STANDARD)
+            <FileSpreadsheet size={14} /> FINANCIAL STATEMENTS · IFRS PRESENTATION
           </div>
           <h1 style={{ margin: "0.25rem 0" }}>
             {statementType === "BALANCE_SHEET" ? "Balance Sheet" : "Income Statement (Profit & Loss)"}

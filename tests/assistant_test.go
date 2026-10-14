@@ -135,6 +135,12 @@ func TestAssistantActsAsTheUserAndOnlyDrafts(t *testing.T) {
 	if !strings.Contains(model.lastToolResults()[0], "invalid_journal") || len(res["drafts"].([]any)) != 0 || res["steps"].([]any)[0].(map[string]any)["ok"] != false {
 		t.Fatal("unbalanced", res, model.lastToolResults())
 	}
+	// The review tool flags the manual entry to revenue made above.
+	model.responses = []string{toolUse("t5", "review_entries", `{"from":"2026-09-01","to":"2026-09-30"}`), answer("Reviewed.")}
+	chat("maker", "Anything unusual in September?", 200)
+	if r := model.lastToolResults()[0]; !strings.Contains(r, "manual_entry_to_revenue") || !strings.Contains(r, "journals_reviewed") {
+		t.Fatal("review", r)
+	}
 	// A posted journal in HQ is invisible to the SECOND-branch user through the assistant too.
 	hq := f.create(t, "assistant-visibility-01")
 	number := hq["number"].(string)

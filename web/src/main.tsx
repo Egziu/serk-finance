@@ -726,7 +726,7 @@ function App() {
         <AssistantPanel
           company={company}
           csrf={session.csrf_token}
-          screen={view}
+          screen={view === "detail" && selected ? ("journal " + selected.number).slice(0, 60) : view}
           canConfigure={!!ref?.permissions?.configure}
           onClose={() => setAssistantOpen(false)}
           onDrafts={() => void reload()}

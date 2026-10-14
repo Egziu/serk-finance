@@ -11,7 +11,7 @@ const toolNames: Record<string, string> = {
   company_overview: "key figures", trial_balance: "trial balance", balance_sheet: "balance sheet", income_statement: "profit or loss",
   account_ledger: "account ledger", list_accounts: "chart of accounts", list_journals: "journals", get_journal: "a journal",
   list_documents: "documents", vat_report: "VAT report", find_parties: "customers / vendors", find_items: "items",
-  ledger_integrity: "ledger integrity", draft_journal: "prepared a draft journal", draft_sales_invoice: "prepared a draft invoice",
+  ledger_integrity: "ledger integrity", review_entries: "entry review", draft_journal: "prepared a draft journal", draft_sales_invoice: "prepared a draft invoice",
   draft_supplier_bill: "prepared a draft bill",
 };
 const suggestions = [
@@ -19,6 +19,7 @@ const suggestions = [
   "How much VAT do we owe for last month, and how was it calculated?",
   "Which customer invoices are still unpaid?",
   "Explain our gross margin and what drives cost of sales.",
+  "Review this month's entries for anything unusual.",
   "Draft a journal for office rent of 20,000 ETB paid today from the CBE account.",
 ];
 

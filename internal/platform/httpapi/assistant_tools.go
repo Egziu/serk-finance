@@ -48,6 +48,8 @@ var assistantToolList = []assistant.Tool{
 		Schema: schema(`{"type":"object","properties":{"search":{"type":"string"}}}`)},
 	{Name: "ledger_integrity", Description: "Check that posted journals balance and the audit chain is intact (needs audit permission).",
 		Schema: schema(`{"type":"object","properties":{}}`)},
+	{Name: "review_entries", Description: "Audit-style review of journals in a date range: flags manual entries to revenue, round or unusually large amounts, weekend dates, and drafts or submissions waiting more than 7 days. Use for 'anything unusual?' or before closing a period.",
+		Schema: schema(`{"type":"object","properties":{"from":` + dateProp + `,"to":` + dateProp + `},"required":["from","to"]}`)},
 	{Name: "draft_journal", Description: "Prepare a DRAFT manual journal for people to review, submit and approve. Lines must balance. Do not use it for invoices, bills, payroll or controlled accounts (receivables, payables, VAT, payroll liabilities, inventory) — those have their own documents or adjustments.",
 		Schema: schema(`{"type":"object","properties":{"accounting_date":` + dateProp + `,"description":{"type":"string"},"reason":{"type":"string","description":"Why, and the supporting document"},"lines":{"type":"array","minItems":2,"items":{"type":"object","properties":{"account_code":{"type":"string"},"debit":{"type":"string","description":"Major units, e.g. 20000.00"},"credit":{"type":"string"},"description":{"type":"string"}},"required":["account_code"]}}},"required":["accounting_date","description","reason","lines"]}`)},
 	{Name: "draft_sales_invoice", Description: "Prepare a DRAFT sales invoice on credit for people to review, submit and approve.",
@@ -320,6 +322,16 @@ func (t *assistantTools) execute(name string, input json.RawMessage) (any, *assi
 			'stock_quantity',coalesce(p.quantity,0)::text,'stock_value_minor',coalesce(p.value_minor,0)::text) ORDER BY i.name),'[]')
 			FROM (SELECT * FROM inventory.items WHERE active AND (name ILIKE '%'||$1||'%' OR sku ILIKE '%'||$1||'%') ORDER BY name LIMIT 25) i
 			LEFT JOIN finance.positions p ON p.item_id=i.id`, str("search"))
+	case "review_entries":
+		from, e := date(str("from"), "from")
+		if e != nil {
+			return nil, nil, e
+		}
+		to, e := date(str("to"), "to")
+		if e != nil {
+			return nil, nil, e
+		}
+		return t.q(reviewEntriesSQL, from, to)
 	case "ledger_integrity":
 		return t.q(`SELECT ledger.integrity_status()`)
 	case "draft_journal":
@@ -526,3 +538,21 @@ func uniqueID(ctx context.Context, tx pgx.Tx, exact, loose, arg string) (string,
 	}
 	return "", nil
 }
+
+// reviewEntriesSQL flags journals an auditor would look at first. It reads only what the
+// caller's row-level security allows.
+const reviewEntriesSQL = `WITH j AS (
+  SELECT j.id,j.number,j.accounting_date,j.description,j.source_type,j.state,j.created_at,
+   (SELECT sum(l.functional_debit_minor) FROM ledger.lines l WHERE l.journal_id=j.id) AS total,
+   EXISTS(SELECT FROM ledger.lines l JOIN ledger.accounts a ON a.id=l.account_id WHERE l.journal_id=j.id AND a.type IN('REVENUE','OTHER_INCOME')) AS touches_revenue
+  FROM ledger.journals j WHERE j.company_id=security.company() AND j.accounting_date BETWEEN $1::date AND $2::date AND j.state<>'VOIDED'),
+ m AS (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY total) AS median FROM j WHERE total>0),
+ f AS (SELECT j.*,array_remove(ARRAY[
+   CASE WHEN j.source_type='MANUAL' AND j.touches_revenue THEN 'manual_entry_to_revenue' END,
+   CASE WHEN j.total>=1000000 AND j.total%100000=0 THEN 'round_amount' END,
+   CASE WHEN (SELECT median FROM m)>0 AND j.total>5*(SELECT median FROM m) THEN 'unusually_large' END,
+   CASE WHEN extract(isodow FROM j.accounting_date) IN (6,7) THEN 'weekend_date' END,
+   CASE WHEN j.state IN('DRAFT','SUBMITTED','APPROVED') AND j.created_at<now()-interval '7 days' THEN 'waiting_over_7_days' END],NULL) AS flags FROM j)
+ SELECT jsonb_build_object('journals_reviewed',(SELECT count(*) FROM j),'median_total_minor',(SELECT median FROM m)::bigint::text,
+  'flagged',coalesce((SELECT jsonb_agg(jsonb_build_object('number',number,'date',accounting_date,'description',description,'source',source_type,
+   'state',state,'total_minor',total::text,'flags',flags) ORDER BY cardinality(flags) DESC,total DESC) FROM (SELECT * FROM f WHERE cardinality(flags)>0 ORDER BY cardinality(flags) DESC,total DESC LIMIT 50) x),'[]'::jsonb))`

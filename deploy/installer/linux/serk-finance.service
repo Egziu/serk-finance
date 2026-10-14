@@ -1,0 +1,24 @@
+[Unit]
+Description=Serk Finance accounting server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=serk-finance
+Group=serk-finance
+ExecStart=/opt/serk-finance/serk-server service --data /var/lib/serk-finance
+# Only the main process gets SIGTERM; it stops the web server and then the database cleanly.
+KillMode=mixed
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/serk-finance
+
+[Install]
+WantedBy=multi-user.target

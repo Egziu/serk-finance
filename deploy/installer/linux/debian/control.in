@@ -1,0 +1,14 @@
+Package: serk-finance
+Version: @DEBVERSION@
+Section: misc
+Priority: optional
+Architecture: amd64
+Maintainer: Serk Technologies Group <packaging@serk-finance.invalid>
+Depends: adduser, curl, systemd
+Installed-Size: @SIZE@
+Homepage: https://github.com/Egziu/serk-finance
+Description: IFRS-based accounting for Ethiopia and Africa (office server)
+ Serk Finance with its own PostgreSQL database and web interface: double-entry ledger with
+ maker-checker approval, sales, purchases, inventory, payroll, VAT, Ethiopian fiscal year,
+ year-end close, audit trail and an optional AI assistant that prepares drafts only.
+ Open http://localhost:8080 after installation to create your company.

@@ -17,6 +17,10 @@ func RequireTLS(environment string, c *pgconn.Config) error {
 	if environment == "development" {
 		return nil
 	}
+	// An office installation runs its own PostgreSQL on this computer; only loopback is exempt.
+	if environment == "office" && loopbackHost(c.Host) && len(c.Fallbacks) == 0 {
+		return nil
+	}
 	if os.Getenv("SERK_DB_PRIVATE_NETWORK") == "true" && privateHost(c.Host) {
 		for _, f := range c.Fallbacks {
 			if !privateHost(f.Host) {
@@ -32,3 +36,7 @@ func RequireTLS(environment string, c *pgconn.Config) error {
 }
 
 func privateHost(h string) bool { return strings.HasSuffix(strings.ToLower(h), ".railway.internal") }
+
+func loopbackHost(h string) bool {
+	return h == "127.0.0.1" || h == "::1" || strings.EqualFold(h, "localhost")
+}

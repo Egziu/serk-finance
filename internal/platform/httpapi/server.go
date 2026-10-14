@@ -22,8 +22,11 @@ type Config struct {
 	RequireMFA bool
 	// OptionalMFA lets a non-development (staging) deployment run without mandatory MFA. Set only
 	// when SERK_ENV=staging and SERK_REQUIRE_MFA=false; production never sets it.
-	OptionalMFA       bool
-	Origin            string
+	OptionalMFA bool
+	Origin      string
+	// Office installations answer on several origins (this computer's name and LAN addresses).
+	Office            bool
+	ExtraOrigins      []string
 	SecureCookies     bool
 	StaticDir         string
 	TrustedProxyCIDRs []string
@@ -58,7 +61,13 @@ func New(db, authdb *database.Pool, c Config) (*Server, error) {
 	if (c.RequireMFA || len(c.MFAKey) > 0) && len(c.MFAKey) != 32 {
 		return nil, errors.New("MFA encryption key required")
 	}
-	if e := config.Origin(c.Origin, c.SecureCookies); e != nil {
+	if c.Office {
+		if e := config.OfficeOrigins(append([]string{c.Origin}, c.ExtraOrigins...)); e != nil {
+			return nil, e
+		}
+	} else if len(c.ExtraOrigins) > 0 {
+		return nil, errors.New("additional origins are only for office installations")
+	} else if e := config.Origin(c.Origin, c.SecureCookies); e != nil {
 		return nil, e
 	}
 	if c.StaticDir != "" {
@@ -209,13 +218,32 @@ func (s *Server) Handler() http.Handler {
 	return s.middleware(m)
 }
 
-func Run() error {
+func Run() error { return RunWith(RunOptions{}) }
+
+// RunOptions customise RunWith for the office launcher: Wrap wraps the HTTP handler (first-run
+// setup), Stop ends the server gracefully (Windows service stop requests).
+type RunOptions struct {
+	Wrap func(http.Handler) http.Handler
+	Stop <-chan struct{}
+}
+
+// RunWith starts the API like Run, with launcher options.
+func RunWith(o RunOptions) error {
 	ctx := context.Background()
 	environment, e := config.Environment()
 	if e != nil {
 		return startupFailure("environment", e)
 	}
-	if e = config.Origin(os.Getenv("SERK_ORIGIN"), environment != "development"); e != nil {
+	office := environment == "office"
+	origins := strings.FieldsFunc(os.Getenv("SERK_ORIGIN"), func(r rune) bool { return r == ',' })
+	if office {
+		e = config.OfficeOrigins(origins)
+	} else if len(origins) != 1 {
+		e = errors.New("SERK_ORIGIN must be one exact origin")
+	} else {
+		e = config.Origin(origins[0], environment != "development")
+	}
+	if e != nil {
 		return startupFailure("origin", e)
 	}
 	dsn, e := config.Secret("DATABASE_URL")
@@ -239,6 +267,7 @@ func Run() error {
 	var mfaKey []byte
 	// Mandatory in production. A staging (test) deployment may set SERK_REQUIRE_MFA=false so
 	// testers can sign in with a password and enrol an authenticator from their profile.
+	// An office installation (plain HTTP on the local network) makes MFA optional unless required.
 	requireMFA := environment == "production" || os.Getenv("SERK_REQUIRE_MFA") == "true" ||
 		(environment == "staging" && os.Getenv("SERK_REQUIRE_MFA") != "false")
 	if environment == "staging" && !requireMFA {
@@ -261,7 +290,9 @@ func Run() error {
 	if devShowOTP {
 		fmt.Fprintln(os.Stderr, "WARNING: SERK_DEV_SHOW_OTP=true - MFA codes are shown on the sign-in screen. Development only.")
 	}
-	s, e := New(db, a, Config{DevShowOTP: devShowOTP, MFAKey: mfaKey, RequireMFA: requireMFA, OptionalMFA: environment == "staging" && !requireMFA, Origin: os.Getenv("SERK_ORIGIN"), SecureCookies: environment != "development", StaticDir: os.Getenv("SERK_WEB_DIR"), TrustedProxyCIDRs: strings.FieldsFunc(os.Getenv("SERK_TRUSTED_PROXY_CIDRS"), func(r rune) bool { return r == ',' })})
+	s, e := New(db, a, Config{DevShowOTP: devShowOTP, MFAKey: mfaKey, RequireMFA: requireMFA, OptionalMFA: (environment == "staging" || office) && !requireMFA,
+		Origin: origins[0], Office: office, ExtraOrigins: origins[1:], SecureCookies: environment != "development" && !office,
+		StaticDir: os.Getenv("SERK_WEB_DIR"), TrustedProxyCIDRs: strings.FieldsFunc(os.Getenv("SERK_TRUSTED_PROXY_CIDRS"), func(r rune) bool { return r == ',' })})
 	if e != nil {
 		return startupFailure("http_configuration", e)
 	}
@@ -269,9 +300,13 @@ func Run() error {
 	if addr == "" {
 		addr = "127.0.0.1:8080"
 	}
-	server := &http.Server{Addr: addr, Handler: s.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
+	handler := s.Handler()
+	if o.Wrap != nil {
+		handler = o.Wrap(handler)
+	}
+	server := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 20 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	fmt.Println("SERK Finance API", addr)
-	if e = serveWithShutdown(server); e != nil {
+	if e = serveWithShutdown(server, o.Stop); e != nil {
 		return startupFailure("http_listener", e)
 	}
 	return nil

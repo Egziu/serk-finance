@@ -15,3 +15,5 @@ test-results/
 *.db
 *.db-*
 playwright-report/
+.cache/
+/serk-server

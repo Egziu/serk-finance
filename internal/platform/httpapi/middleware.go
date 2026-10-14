@@ -36,7 +36,7 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 				s.fail(w, r, &problem{500, "internal_error"})
 			}
 		}()
-		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && r.Header.Get("Origin") != s.Config.Origin {
+		if r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS" && !s.allowedOrigin(r.Header.Get("Origin")) {
 			s.fail(w, r, &problem{403, "origin_denied"})
 			return
 		}
@@ -94,4 +94,16 @@ func (l *limiter) Allow(key string, max int) bool {
 	}
 	l.entries[key] = w
 	return w.count <= max
+}
+
+func (s *Server) allowedOrigin(o string) bool {
+	if o == s.Config.Origin {
+		return true
+	}
+	for _, x := range s.Config.ExtraOrigins {
+		if o == x {
+			return true
+		}
+	}
+	return false
 }

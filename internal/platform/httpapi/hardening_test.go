@@ -96,3 +96,20 @@ func TestEffectiveRequireMFA(t *testing.T) {
 		}
 	}
 }
+
+func TestOfficeOriginsAndCrossSiteWrites(t *testing.T) {
+	s := &Server{Config: Config{Office: true, Origin: "http://localhost:8080", ExtraOrigins: []string{"http://192.168.1.20:8080"}}, limits: &limiter{entries: map[string]window{}}}
+	h := s.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	for origin, want := range map[string]int{"http://localhost:8080": 204, "http://192.168.1.20:8080": 204, "http://evil.example": 403, "": 403} {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/v1/x", nil)
+		req.Header.Set("Origin", origin)
+		h.ServeHTTP(rr, req)
+		if rr.Code != want {
+			t.Errorf("%q: got %d", origin, rr.Code)
+		}
+	}
+	if _, e := New(nil, nil, Config{Origin: "https://a.example", ExtraOrigins: []string{"https://b.example"}, SecureCookies: true, MFAKey: make([]byte, 32)}); e == nil {
+		t.Error("extra origins accepted outside office mode")
+	}
+}

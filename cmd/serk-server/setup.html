@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up Serk Finance</title>
+<style>
+:root{--ink:#173b3c;--muted:#66807d;--line:#dfe8e4;--green:#166453;--mint:#e8f3ee;--gold:#f2b705;--bad:#9b3a1a;--bg:#f6f8f7;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--ink:#e6f0ed;--muted:#9db3ae;--line:#2a3d3c;--green:#5cc2a1;--mint:#16302b;--bg:#0f1c1c;--card:#142625;--bad:#f2a07e}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}.brand i{width:30px;height:30px;border-radius:8px;background:var(--gold);display:inline-block}
+h1{font-size:28px;margin:24px 0 6px}p.lead{color:var(--muted);margin:0 0 24px}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 4px}section>p{color:var(--muted);margin:0 0 14px;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}@media (max-width:640px){.grid{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}label.full{grid-column:1/-1}
+input,select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+input:focus,select:focus{outline:2px solid var(--green);outline-offset:1px}
+.check{flex-direction:row;align-items:center;gap:8px;color:var(--ink)}
+button{font:inherit;font-weight:600;background:var(--green);color:#fff;border:0;border-radius:10px;padding:12px 20px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.error{background:#fdf1ec;color:var(--bad);border:1px solid #f2d3c6;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+@media (prefers-color-scheme:dark){.error{background:#3a2019;border-color:#5a3226}}
+.done{text-align:center}.done strong{font-size:20px}.muted{color:var(--muted)}small{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<div class="brand"><i></i>SERK Finance</div>
+<div id="form-view">
+<h1>Set up your company</h1>
+<p class="lead">This creates your company, its chart of accounts and the first administrator. It takes about a minute. You can change everything later in the application.</p>
+<div id="error" class="error" role="alert" hidden></div>
+<form id="setup" novalidate>
+<section>
+<h2>Company</h2>
+<p>The workspace name is what people type when they sign in.</p>
+<div class="grid">
+<label class="full">Company name<input name="company_name" required maxlength="200" placeholder="Abay Trading PLC" autocomplete="organization"></label>
+<label>Workspace (sign-in name)<input name="workspace" required pattern="[a-z0-9][a-z0-9-]{1,39}" maxlength="40" placeholder="abay"></label>
+<label>Currency<select name="currency"><option value="ETB" selected>ETB — Ethiopian birr</option><option>USD</option><option>EUR</option><option>KES</option><option>UGX</option><option>RWF</option><option>TZS</option><option>DJF</option><option>SOS</option></select></label>
+<label>Branches<input name="branches" value="HQ" placeholder="HQ, ADDIS"><small>Short codes separated by commas.</small></label>
+<label class="check"><input type="checkbox" name="vat_registered" checked> Registered for VAT (adds VAT 15%)</label>
+</div>
+</section>
+<section>
+<h2>Fiscal year</h2>
+<p>Ethiopian fiscal years run from Hamle 1 to Sene 30 in 13 periods, including Pagume.</p>
+<div class="grid">
+<label>Calendar<select name="calendar" id="calendar"><option value="ETHIOPIAN" selected>Ethiopian (Hamle – Sene)</option><option value="GREGORIAN">Gregorian (12 months)</option></select></label>
+<label>First day of the fiscal year<input type="date" name="year_start" id="year_start" required><small id="year_hint"></small></label>
+</div>
+</section>
+<section>
+<h2>Administrator</h2>
+<p>This person manages users, roles and settings. Use a password of at least 14 characters and keep it safe.</p>
+<div class="grid">
+<label>Full name<input name="admin_name" required maxlength="200" autocomplete="name"></label>
+<label>Email<input name="admin_email" type="email" required autocomplete="email"></label>
+<label>Password<input name="admin_password" type="password" required minlength="14" autocomplete="new-password"></label>
+<label>Confirm password<input name="confirm" type="password" required minlength="14" autocomplete="new-password"></label>
+</div>
+</section>
+<section>
+<h2>Practice workspace (optional)</h2>
+<div class="grid">
+<label class="check full"><input type="checkbox" name="practice_workspace"> Also create the "demo" practice workspace with sample data, for training. Its users (admin@serk.demo, accountant@serk.demo, …) use the administrator password above.</label>
+</div>
+</section>
+<button id="submit" type="submit">Create my company</button>
+</form>
+</div>
+<div id="done-view" class="done" hidden>
+<h1>Your company is ready</h1>
+<section>
+<p>Sign in with workspace <strong id="done-ws"></strong> and email <strong id="done-email"></strong>.</p>
+<p class="muted">Other computers in the office can open this same address in their browser.</p>
+<button id="go" type="button">Go to sign in</button>
+</section>
+</div>
+</main>
+<script>
+(function(){
+  var token=new URLSearchParams(location.search).get('token')||'';
+  var cal=document.getElementById('calendar'),start=document.getElementById('year_start'),hint=document.getElementById('year_hint');
+  function iso(d){return d.toISOString().slice(0,10)}
+  function meskeremOne(y){var leap=((y+1)%4===0&&(y+1)%100!==0)||(y+1)%400===0;return new Date(Date.UTC(y,8,leap?12:11))}
+  function hamleOne(y){var d=meskeremOne(y-1);d.setUTCDate(d.getUTCDate()+300);return d}
+  function suggest(){
+    var now=new Date(),y=now.getUTCFullYear();
+    if(cal.value==='ETHIOPIAN'){var h=hamleOne(y);if(h>now)h=hamleOne(y-1);start.value=iso(h);hint.textContent='Hamle 1 of EFY '+(h.getUTCFullYear()-7)+'.';}
+    else{start.value=y+'-01-01';hint.textContent='';}
+  }
+  cal.addEventListener('change',suggest);suggest();
+  var form=document.getElementById('setup'),err=document.getElementById('error'),btn=document.getElementById('submit');
+  function fail(m){err.textContent=m;err.hidden=false;window.scrollTo(0,0)}
+  form.addEventListener('submit',function(e){
+    e.preventDefault();err.hidden=true;
+    var f=new FormData(form);
+    if(f.get('admin_password')!==f.get('confirm'))return fail('The passwords do not match.');
+    if(!form.checkValidity())return fail('Please complete every field. The workspace uses lowercase letters, digits and hyphens.');
+    var body={workspace:f.get('workspace'),company_name:f.get('company_name'),currency:f.get('currency'),calendar:f.get('calendar'),year_start:f.get('year_start'),
+      branches:String(f.get('branches')||'HQ').split(',').map(function(s){return s.trim()}).filter(Boolean),vat_registered:!!f.get('vat_registered'),
+      admin_name:f.get('admin_name'),admin_email:f.get('admin_email'),admin_password:f.get('admin_password'),practice_workspace:!!f.get('practice_workspace'),token:token};
+    btn.disabled=true;btn.textContent='Creating your company…';
+    fetch('/setup/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'})
+      .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})})
+      .then(function(x){
+        if(!x.ok)throw new Error(x.j.error||'Setup failed.');
+        document.getElementById('done-ws').textContent=x.j.workspace;document.getElementById('done-email').textContent=x.j.email;
+        document.getElementById('form-view').hidden=true;document.getElementById('done-view').hidden=false;
+      })
+      .catch(function(e){fail(e.message);btn.disabled=false;btn.textContent='Create my company';});
+  });
+  document.getElementById('go').addEventListener('click',function(){location.href='/'});
+})();
+</script>
+</body>
+</html>

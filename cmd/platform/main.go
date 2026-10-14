@@ -23,16 +23,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"serk.finance/internal/demo"
+	"serk.finance/internal/platform/bootstrap"
 	"serk.finance/internal/platform/config"
 	"serk.finance/internal/platform/database"
 	"serk.finance/internal/platform/httpapi"
-	"serk.finance/migrations"
 )
 
 func prepare(ctx context.Context) error {
@@ -48,8 +46,9 @@ func prepare(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	if len(apiPass) < 24 || len(authPass) < 24 || apiPass == authPass {
-		return errors.New("runtime passwords must be distinct and at least 24 characters")
+	logins := bootstrap.Logins{API: apiPass, Auth: authPass}
+	if e = logins.Validate(); e != nil {
+		return e
 	}
 	os.Setenv("MIGRATOR_DATABASE_URL", operator)
 	db, e := database.Operator(ctx)
@@ -57,23 +56,8 @@ func prepare(ctx context.Context) error {
 		return fmt.Errorf("operator connection: %w", e)
 	}
 	defer db.Close(ctx)
-	if e = database.Migrate(ctx, db, migrations.Files, os.Stdout); e != nil {
+	if e = bootstrap.Prepare(ctx, db, logins, os.Stdout); e != nil {
 		return e
-	}
-	for _, r := range []struct{ login, role, pass string }{{"serk_api_login", "serk_api", apiPass}, {"serk_auth_login", "serk_auth", authPass}} {
-		var sql string
-		if e = db.QueryRow(ctx, `SELECT CASE WHEN EXISTS(SELECT FROM pg_roles WHERE rolname=$1)
-			THEN format('ALTER ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS PASSWORD %L',$1,$3)
-			ELSE format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS IN ROLE %I PASSWORD %L',$1,$2,$3) END`,
-			r.login, r.role, r.pass).Scan(&sql); e != nil {
-			return e
-		}
-		if _, e = db.Exec(ctx, sql); e != nil {
-			return fmt.Errorf("runtime role %s: %s", r.login, database.RedactedError(e))
-		}
-		if _, e = db.Exec(ctx, fmt.Sprintf(`GRANT %s TO %s`, pgx.Identifier{r.role}.Sanitize(), pgx.Identifier{r.login}.Sanitize())); e != nil {
-			return e
-		}
 	}
 	if os.Getenv("SERK_DEMO_SEED") == "ethiopia" {
 		pass, e := config.Secret("SERK_DEMO_PASSWORD")
@@ -94,14 +78,12 @@ func prepare(ctx context.Context) error {
 		}
 	}
 	// The API connects with the unprivileged logins only.
-	u, e := url.Parse(operator)
+	apiURL, authURL, e := bootstrap.RuntimeURLs(operator, logins)
 	if e != nil {
-		return errors.New("invalid operator URL")
+		return e
 	}
-	u.User = url.UserPassword("serk_api_login", apiPass)
-	os.Setenv("DATABASE_URL", u.String())
-	u.User = url.UserPassword("serk_auth_login", authPass)
-	os.Setenv("AUTH_DATABASE_URL", u.String())
+	os.Setenv("DATABASE_URL", apiURL)
+	os.Setenv("AUTH_DATABASE_URL", authURL)
 	os.Unsetenv("OPERATOR_DATABASE_URL")
 	os.Unsetenv("MIGRATOR_DATABASE_URL")
 	if os.Getenv("SERK_ORIGIN") == "" && os.Getenv("RAILWAY_PUBLIC_DOMAIN") != "" {

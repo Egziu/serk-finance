@@ -12,10 +12,10 @@ import (
 func Environment() (string, error) {
 	e := os.Getenv("SERK_ENV")
 	switch e {
-	case "development", "staging", "production":
+	case "development", "staging", "production", "office":
 		return e, nil
 	default:
-		return "", errors.New("SERK_ENV must be development, staging, or production")
+		return "", errors.New("SERK_ENV must be development, staging, production or office")
 	}
 }
 
@@ -53,6 +53,21 @@ func Origin(raw string, secure bool) error {
 		}
 	} else if raw != "http://localhost:8080" && raw != "http://127.0.0.1:8080" {
 		return errors.New("development origin must be loopback port 8080")
+	}
+	return nil
+}
+
+// OfficeOrigins validates the origins an office installation answers on: exact http or https
+// origins (this computer's name and addresses on the local network). At least one is required.
+func OfficeOrigins(list []string) error {
+	if len(list) == 0 || len(list) > 64 {
+		return errors.New("an office installation needs 1 to 64 origins")
+	}
+	for _, raw := range list {
+		u, err := url.Parse(raw)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || raw != u.Scheme+"://"+u.Host || strings.ContainsAny(raw, "\r\n\\") {
+			return fmt.Errorf("invalid office origin %q", raw)
+		}
 	}
 	return nil
 }

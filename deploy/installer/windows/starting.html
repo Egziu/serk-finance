@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Starting Serk Finance</title>
+<style>body{font:16px/1.5 "Segoe UI",system-ui,sans-serif;background:#f6f8f7;color:#173b3c;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+main{text-align:center;max-width:520px;padding:16px}.dot{width:14px;height:14px;border-radius:50%;background:#166453;display:inline-block;animation:p 1s infinite alternate}
+@keyframes p{to{opacity:.2}}small{color:#66807d}</style></head>
+<body><main><p><span class="dot"></span></p><h1>Starting Serk Finance…</h1>
+<p>The first start prepares the database and can take a minute. This page opens Serk Finance as soon as it is ready.</p>
+<p><small id="s">Waiting for http://localhost:8080 …</small></p></main>
+<script>
+(function(){var tries=0;function check(){tries++;fetch('http://localhost:8080/health/ready',{mode:'no-cors',cache:'no-store'}).then(function(){location.href='http://localhost:8080/';},function(){
+if(tries>180){document.getElementById('s').textContent='Serk Finance has not started. Open Services, find "Serk Finance", and check C:\\ProgramData\\SerkFinance\\logs.';return;}setTimeout(check,1000);});}check();})();
+</script></body></html>

@@ -1,0 +1,22 @@
+SERK FINANCE — RELEASE CANDIDATE TERMS
+
+Copyright (c) 2026 Serk Technologies Group. All rights reserved.
+
+This is a release candidate of Serk Finance provided for evaluation and testing. It is not
+yet approved for live statutory financial reporting. It is provided "as is", without warranty
+of any kind. Serk Technologies Group is not liable for any loss arising from its use.
+
+Tax rates, payroll bands and pension percentages that the software creates or suggests are
+samples. Confirm every statutory rate with a qualified accountant or the Ministry of Revenues
+before relying on it. Keep regular backups (Start menu > Serk Finance > Back up now, or
+"sudo serk-finance backup" on Linux) on a separate drive.
+
+The optional AI assistant sends your questions, and the figures it looks up, to the AI provider
+your administrator configures. Use a provider your organisation has approved, or an AI model
+server inside your own network.
+
+Serk Finance includes third-party software under its own licences: PostgreSQL (PostgreSQL
+Licence), the Microsoft Visual C++ runtime (Windows only, Microsoft redistributable licence)
+and the other components listed in THIRD-PARTY-NOTICES.txt.
+
+By installing you accept these terms.

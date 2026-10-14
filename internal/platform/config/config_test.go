@@ -13,7 +13,7 @@ func TestDeploymentConfigurationFailsClosed(t *testing.T) {
 			t.Fatalf("accepted environment %q", env)
 		}
 	}
-	for _, env := range []string{"development", "staging", "production"} {
+	for _, env := range []string{"development", "staging", "production", "office"} {
 		t.Setenv("SERK_ENV", env)
 		if _, e := Environment(); e != nil {
 			t.Fatal(e)
@@ -47,5 +47,16 @@ func TestMountedSecretsRejectAmbiguity(t *testing.T) {
 	t.Setenv("SERK_TEST_SECRET", "conflicting")
 	if _, e := Secret("SERK_TEST_SECRET"); e == nil {
 		t.Fatal("ambiguous source accepted")
+	}
+}
+
+func TestOfficeOrigins(t *testing.T) {
+	if e := OfficeOrigins([]string{"http://localhost:8080", "http://192.168.1.20:8080", "https://finance.office.lan"}); e != nil {
+		t.Fatal(e)
+	}
+	for _, bad := range [][]string{nil, {"http://x/"}, {"ftp://x"}, {"http://u:p@x"}, {"http://x?q"}} {
+		if OfficeOrigins(bad) == nil {
+			t.Fatalf("accepted %v", bad)
+		}
 	}
 }

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs serk-server commands as the service account with the installation's data folder.
+#   sudo serk-finance backup [--out FILE]
+#   sudo serk-finance restore --from FILE      (stop the service first: sudo systemctl stop serk-finance)
+#   sudo serk-finance reset-password --workspace W --email E
+set -e
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift
+if [ "$(id -u)" -ne 0 ]; then echo "Run with sudo." >&2; exit 1; fi
+exec runuser -u serk-finance -- /opt/serk-finance/serk-server "$cmd" --data /var/lib/serk-finance "$@"

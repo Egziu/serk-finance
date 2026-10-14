@@ -89,6 +89,8 @@ func prepare(ctx context.Context) error {
 				return fmt.Errorf("demo seed: %w", e)
 			}
 			slog.Info("demo_workspace_created", "workspace", demo.Slug, "users", len(demo.Users))
+		} else if e = demo.Upgrade(ctx, db); e != nil {
+			return fmt.Errorf("demo upgrade: %w", e)
 		}
 	}
 	// The API connects with the unprivileged logins only.

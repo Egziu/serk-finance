@@ -49,7 +49,7 @@ try {
  const replay=await run(['run','./cmd/migrate']);if(replay.code!==0)throw Error('Migration repeat failed');
  await db.query("UPDATE public.serk_migrations SET sha256='changed' WHERE name='001_foundation.sql'");
  const drift=await run(['run','./cmd/migrate']);if(drift.code===0||!(drift.stderr.includes('checksum mismatch')))throw Error('Checksum drift not rejected');
- result={status:'PASS',backend:'pglite',started,at:new Date().toISOString(),from:fromRC3?'0.2.0-rc3':fromRC2?'0.2.0-rc2':fromRC1?'0.2.0-rc1':'0.1.0',to:'0.3.0-rc1',session_check:(fromRC2||fromRC3)?'MFA-era sessions preserved':'pre-MFA sessions revoked',posted_journal_preserved:true,exact_table_hashes:before,migration_replay:'PASS',checksum_drift:'REJECTED',limits:'Does not establish native PostgreSQL lock behavior or backup recovery.'};
+ result={status:'PASS',backend:'pglite',started,at:new Date().toISOString(),from:fromRC3?'0.2.0-rc3':fromRC2?'0.2.0-rc2':fromRC1?'0.2.0-rc1':'0.1.0',to:'0.4.0-rc1',session_check:(fromRC2||fromRC3)?'MFA-era sessions preserved':'pre-MFA sessions revoked',posted_journal_preserved:true,exact_table_hashes:before,migration_replay:'PASS',checksum_drift:'REJECTED',limits:'Does not establish native PostgreSQL lock behavior or backup recovery.'};
 }catch(e){console.error(e);process.exitCode=1;result={...result,status:'FAIL',error:e.message}}
 finally{
  try{await closePGliteHarness(server,db);result.teardown='PASS'}

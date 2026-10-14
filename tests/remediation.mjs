@@ -8,7 +8,7 @@ const check=async(name,fn)=>{try{await fn();results.push({name,status:'PASS'});c
 const reject=async(fn,code)=>assert.rejects(fn,e=>{assert.equal(e.code,code,e.message);return true;});
 try{
  db=await database();const f=await fixture(db,'repair');
- await check('every shipped migration applies and repaired release marker is present',async()=>assert.equal((await db.query('SELECT security.release_version() AS v')).rows[0].v,'0.3.0-rc1'));
+ await check('every shipped migration applies and repaired release marker is present',async()=>assert.equal((await db.query('SELECT security.release_version() AS v')).rows[0].v,'0.4.0-rc1'));
  for(const u of ['maker','checker']){
   const role=(await db.query('SELECT role_id FROM security.memberships WHERE user_id=$1 AND company_id=$2',[f.users[u],f.company])).rows[0].role_id;
   for(const p of ['configuration.manage','sales.read','sales.manage','purchases.read','purchases.manage','inventory.read','inventory.manage','payroll.read','payroll.manage','taxes.read','taxes.manage'])await db.query('INSERT INTO security.role_permissions VALUES($1,$2,$3)',[f.tenant,role,p]);

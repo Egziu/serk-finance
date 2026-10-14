@@ -21,8 +21,8 @@ for path,rel in files():
  if path.suffix=='.md' or path.name in {'SHA256SUMS','SOURCE_MANIFEST.json','BUILD_INFO.json'}:continue
  source[str(rel)]=hashlib.sha256(path.read_bytes()).hexdigest()
 build_id=hashlib.sha256(json.dumps(source,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-(root/'SOURCE_MANIFEST.json').write_text(json.dumps({'version':'0.3.0-rc1','build_revision':args.build_revision,'source_id':build_id,'files':source},indent=2)+'\n')
-(root/'BUILD_INFO.json').write_text(json.dumps({'version':'0.3.0-rc1','build_revision':args.build_revision,'source_id':build_id,'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'production_approved':False,'source_commit':'Repository github.com/Egziu/serk-finance; identify this build by source_id and SHA256SUMS.'},indent=2)+'\n')
+(root/'SOURCE_MANIFEST.json').write_text(json.dumps({'version':'0.4.0-rc1','build_revision':args.build_revision,'source_id':build_id,'files':source},indent=2)+'\n')
+(root/'BUILD_INFO.json').write_text(json.dumps({'version':'0.4.0-rc1','build_revision':args.build_revision,'source_id':build_id,'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'production_approved':False,'source_commit':'Repository github.com/Egziu/serk-finance; identify this build by source_id and SHA256SUMS.'},indent=2)+'\n')
 manifest=[]
 for path,rel in files():
  if path.name!='SHA256SUMS':manifest.append(hashlib.sha256(path.read_bytes()).hexdigest()+'  '+str(rel))

@@ -50,7 +50,9 @@ import {
   Scale,
   CalendarCheck2,
   Settings2,
+  Sparkles,
 } from "lucide-react";
+import { AssistantPanel } from "./AssistantPanel";
 import { api, APIError } from "./api";
 import type { Session, Reference, Journal, Trial, Audit } from "./types";
 import "./style.css";
@@ -74,6 +76,7 @@ function App() {
     [busy, setBusy] = useState(false),
     [palette, setPalette] = useState(false),
     [profileOpen, setProfileOpen] = useState(false),
+    [assistantOpen, setAssistantOpen] = useState(false),
     [identity, setIdentity] = useState<Identity | null>(loadIdentity),
     [online, setOnline] = useState(navigator.onLine);
   const [trial, setTrial] = useState<Trial | null>(null),
@@ -486,6 +489,12 @@ function App() {
               <i />
               {!online ? "Offline" : serverUp ? "Connected" : "Server unavailable"}
             </span>
+            {feature("ai_assistant") && held("ai.use") && (
+              <button className="assistant-launch" aria-label="Open finance assistant" onClick={() => setAssistantOpen(!assistantOpen)}>
+                <Sparkles size={16} />
+                <span>Assistant</span>
+              </button>
+            )}
             <button className="top-profile" onClick={() => setProfileOpen(true)} aria-label="Your profile" title={session.name}>
               <span className="avatar">{session.name.slice(0, 1).toUpperCase()}</span>
             </button>
@@ -712,6 +721,17 @@ function App() {
             </form>
           </section>
         </div>
+      )}
+      {assistantOpen && company && feature("ai_assistant") && held("ai.use") && (
+        <AssistantPanel
+          company={company}
+          csrf={session.csrf_token}
+          screen={view}
+          canConfigure={!!ref?.permissions?.configure}
+          onClose={() => setAssistantOpen(false)}
+          onDrafts={() => void reload()}
+          openDraft={(d) => (d.kind === "JOURNAL" ? void open({ id: d.id }) : navigate(d.kind === "INVOICE" ? "sales" : "purchases"))}
+        />
       )}
       {profileOpen && (
         <ProfileModal

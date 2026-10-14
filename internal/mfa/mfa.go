@@ -86,3 +86,33 @@ func MatchStep(secret, code string, now time.Time) (int64, bool) {
 	}
 	return -1, false
 }
+
+// Seal encrypts an application secret (for example an AI provider API key) with the same
+// server key as authenticator secrets, bound to its context so it cannot be moved elsewhere.
+func Seal(key []byte, context, plaintext string) (string, error) {
+	if plaintext == "" || len(plaintext) > 1000 {
+		return "", errors.New("invalid secret")
+	}
+	a, e := aead(key)
+	if e != nil {
+		return "", e
+	}
+	return base64.StdEncoding.EncodeToString(a.Seal(nil, nil, []byte(plaintext), []byte("serk-secret-v1:"+context))), nil
+}
+
+// Open decrypts a value sealed with Seal for the same context.
+func Open(key []byte, context, sealed string) (string, error) {
+	a, e := aead(key)
+	if e != nil {
+		return "", e
+	}
+	b, e := base64.StdEncoding.DecodeString(sealed)
+	if e != nil {
+		return "", errors.New("invalid sealed secret")
+	}
+	plain, e := a.Open(nil, nil, b, []byte("serk-secret-v1:"+context))
+	if e != nil {
+		return "", errors.New("sealed secret authentication failed")
+	}
+	return string(plain), nil
+}

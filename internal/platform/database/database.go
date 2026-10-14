@@ -96,7 +96,7 @@ func Open(ctx context.Context, dsn, role string) (*Pool, error) {
 }
 
 // ReleaseVersion is the schema marker this binary requires (security.release_version()).
-const ReleaseVersion = "0.3.0-rc1"
+const ReleaseVersion = "0.4.0-rc1"
 
 func (p *Pool) Transaction(ctx context.Context, fn func(pgx.Tx) error) error {
 	tx, e := p.BeginTx(ctx, pgx.TxOptions{})

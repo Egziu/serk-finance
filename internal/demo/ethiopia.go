@@ -31,14 +31,14 @@ var Users = []struct{ Email, Name, Role string }{
 
 var roles = map[string][]string{
 	"Chief Accountant": {"ledger.read", "journal.create", "journal.submit", "journal.approve", "journal.post", "journal.reverse", "journal.void", "period.close", "audit.read", "configuration.manage",
-		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "payroll.read", "payroll.manage", "taxes.read", "taxes.manage"},
+		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "payroll.read", "payroll.manage", "taxes.read", "taxes.manage", "ai.use"},
 	"Accountant": {"ledger.read", "journal.create", "journal.submit", "journal.void", "audit.read",
-		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "taxes.read", "taxes.manage"},
+		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "taxes.read", "taxes.manage", "ai.use"},
 	"Finance Manager": {"ledger.read", "journal.approve", "journal.post", "journal.reverse", "journal.void", "period.close", "audit.read",
-		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "payroll.read", "payroll.manage", "taxes.read", "taxes.manage"},
-	"Payroll Officer":     {"ledger.read", "journal.create", "journal.submit", "journal.void", "payroll.read", "payroll.manage"},
-	"Sales Clerk":         {"ledger.read", "journal.create", "journal.submit", "journal.void", "sales.read", "sales.manage", "inventory.read"},
-	"Auditor (read only)": {"ledger.read", "audit.read", "sales.read", "purchases.read", "inventory.read", "payroll.read", "taxes.read"},
+		"sales.read", "sales.manage", "purchases.read", "purchases.manage", "inventory.read", "inventory.manage", "payroll.read", "payroll.manage", "taxes.read", "taxes.manage", "ai.use"},
+	"Payroll Officer":     {"ledger.read", "journal.create", "journal.submit", "journal.void", "payroll.read", "payroll.manage", "ai.use"},
+	"Sales Clerk":         {"ledger.read", "journal.create", "journal.submit", "journal.void", "sales.read", "sales.manage", "inventory.read", "ai.use"},
+	"Auditor (read only)": {"ledger.read", "audit.read", "sales.read", "purchases.read", "inventory.read", "payroll.read", "taxes.read", "ai.use"},
 }
 
 func account(code, name, typ, normal string, opts ...string) provisioning.Account {
@@ -95,6 +95,15 @@ var chart = []provisioning.Account{
 	account("6900", "Bank charges", "EXPENSE", "DEBIT", "Finance costs"),
 	account("7000", "Foreign exchange differences", "OTHER_EXPENSE", "DEBIT", "Other expenses"),
 	account("8000", "Income tax expense", "EXPENSE", "DEBIT", "Income tax"),
+}
+
+// Upgrade brings an existing demo workspace up to the current release: every demo role may use
+// the AI assistant (0.4.0). It is idempotent.
+func Upgrade(ctx context.Context, db *pgx.Conn) error {
+	_, e := db.Exec(ctx, `INSERT INTO security.role_permissions(tenant_id,role_id,permission)
+		SELECT r.tenant_id,r.id,'ai.use' FROM security.roles r JOIN security.tenants t ON t.id=r.tenant_id WHERE t.slug=$1
+		ON CONFLICT DO NOTHING`, Slug)
+	return e
 }
 
 // Exists reports whether the demo workspace has been provisioned.

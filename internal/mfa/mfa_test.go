@@ -56,3 +56,17 @@ func TestEncryptedSecretBinding(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestSealedSecretBinding(t *testing.T) {
+	key := make([]byte, 32)
+	sealed, e := Seal(key, "ai:company-a", "sk-ant-test-123")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if got, e := Open(key, "ai:company-a", sealed); e != nil || got != "sk-ant-test-123" {
+		t.Fatalf("%q %v", got, e)
+	}
+	if _, e := Open(key, "ai:company-b", sealed); e == nil {
+		t.Fatal("a secret sealed for one company must not open for another")
+	}
+}

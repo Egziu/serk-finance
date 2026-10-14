@@ -161,7 +161,7 @@ export class APIError extends Error {
 export async function api<T>(
   path: string,
   company?: string,
-  options?: { method?: string; body?: unknown; csrf?: string; key?: string },
+  options?: { method?: string; body?: unknown; csrf?: string; key?: string; timeoutMs?: number },
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (company) headers["X-Company-ID"] = company;
@@ -171,7 +171,7 @@ export async function api<T>(
   const r = await fetch("/api/v1" + path, {
     method: options?.method ?? "GET",
     credentials: "same-origin",
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(options?.timeoutMs ?? 25000),
     headers,
     body:
       options?.body !== undefined ? JSON.stringify(options.body) : undefined,

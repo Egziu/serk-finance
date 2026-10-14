@@ -9,6 +9,7 @@ SetCompressor /SOLID lzma
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "Sections.nsh"
+!include "WordFunc.nsh"
 
 !define APP "Serk Finance"
 !define SERVICE "SerkFinance"
@@ -18,7 +19,6 @@ SetCompressor /SOLID lzma
 Name "${APP} ${VERSION}"
 OutFile "${OUTFILE}"
 InstallDir "$PROGRAMFILES64\Serk Finance"
-InstallDirRegKey HKLM "Software\SerkFinance" "InstallDir"
 RequestExecutionLevel admin
 BrandingText "${APP} ${VERSION}"
 ShowInstDetails show
@@ -54,6 +54,7 @@ VIAddVersionKey "LegalCopyright" "Serk Technologies Group"
 
 Var DATA
 Var LOCALONLY
+Var PREVDIR
 
 Function .onInit
   ${IfNot} ${RunningX64}
@@ -63,14 +64,71 @@ Function .onInit
   SetRegView 64
   SetShellVarContext all
   StrCpy $DATA "$APPDATA\SerkFinance"
+  ; The previous installation's folder and data folder (64-bit registry view).
+  ReadRegStr $PREVDIR HKLM "Software\SerkFinance" "InstallDir"
+  ${If} $PREVDIR != ""
+    StrCpy $INSTDIR $PREVDIR
+  ${EndIf}
+  ReadRegStr $0 HKLM "Software\SerkFinance" "DataDir"
+  ${If} $0 != ""
+    StrCpy $DATA $0
+  ${EndIf}
+  ; Never install an older version over a newer one (its database would be too new for it).
+  ReadRegStr $0 HKLM "Software\SerkFinance" "Version4"
+  ${If} $0 != ""
+    ${VersionCompare} "$0" "${VERSION4}" $1
+    ${If} $1 == 1
+      MessageBox MB_ICONSTOP "A newer version of ${APP} is installed. Installing an older version over it is not supported." /SD IDOK
+      Abort
+    ${EndIf}
+  ${EndIf}
+  ReadRegStr $0 HKLM "${UNINSTKEY}" "DisplayVersion"
+  ${If} $0 != ""
+  ${AndIf} $0 != "${VERSION}"
+    MessageBox MB_OKCANCEL|MB_ICONINFORMATION "${APP} $0 is installed. This replaces it with version ${VERSION}; your company data is kept.$\r$\n$\r$\nMake a backup first (Start menu > ${APP} > Back up now). Installing an older version over a newer one is not supported." /SD IDOK IDOK +2
+    Abort
+  ${EndIf}
 FunctionEnd
 
+; Opens the page as the signed-in user, not with the installer's administrator rights.
 Function OpenApp
-  ExecShell "open" "$INSTDIR\starting.html"
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\starting.html"'
 FunctionEnd
 
-; Stops the service if it exists and waits until it has stopped (database closed cleanly).
-Function StopService
+; Locks FOLDER to Administrators and SYSTEM (full control) plus the EXTRA grants, owned by
+; Administrators. All existing permissions on the folder and everything inside are removed
+; first, so a folder created in advance by another user keeps none of that user's access.
+; A junction or symbolic link is refused, so the permissions cannot be redirected elsewhere.
+!macro LockFolder FOLDER EXTRA
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -Command "if ((Get-Item -LiteralPath '${FOLDER}' -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { exit 3 }"`
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "${FOLDER} is a link to another folder or cannot be checked (exit $0). Remove it, or choose another folder, and run the installer again." /SD IDOK
+    Abort
+  ${EndIf}
+  nsExec::ExecToLog 'icacls "${FOLDER}" /setowner *S-1-5-32-544 /T /C /Q'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "Could not take ownership of ${FOLDER} (icacls exit $0)." /SD IDOK
+    Abort
+  ${EndIf}
+  nsExec::ExecToLog 'icacls "${FOLDER}" /reset /T /C /Q'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "Could not reset permissions on ${FOLDER} (icacls exit $0)." /SD IDOK
+    Abort
+  ${EndIf}
+  nsExec::ExecToLog 'icacls "${FOLDER}" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F ${EXTRA} /Q'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "Could not set permissions on ${FOLDER} (icacls exit $0)." /SD IDOK
+    Abort
+  ${EndIf}
+!macroend
+
+; Stops the service and waits until it has stopped (database closed cleanly). A database
+; process of this installation that is still running afterwards is ended.
+!macro StopServiceBody
   nsExec::ExecToLog 'sc.exe stop ${SERVICE}'
   Pop $0
   StrCpy $1 0
@@ -81,10 +139,9 @@ Function StopService
     ${If} $0 != 0
       ${Break}
     ${EndIf}
-    StrCpy $3 $2
     Push $2
     Push "STOPPED"
-    Call StrContains
+    Call ${UN}StrContains
     Pop $4
     ${If} $4 != ""
       ${Break}
@@ -92,10 +149,13 @@ Function StopService
     Sleep 1000
     IntOp $1 $1 + 1
   ${LoopUntil} $1 >= 90
-FunctionEnd
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -Command "Get-Process serk-server,postgres -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '$INSTDIR\*' } | Stop-Process -Force"`
+  Pop $0
+!macroend
 
 ; StrContains: push haystack, push needle; pops "" when absent, else the needle.
-Function StrContains
+!macro StrContainsBody
+
   Exch $R1 ; needle
   Exch
   Exch $R2 ; haystack
@@ -120,7 +180,23 @@ Function StrContains
   Pop $R3
   Pop $R2
   Exch $R1
+!macroend
+Function StrContains
+  !insertmacro StrContainsBody
 FunctionEnd
+Function un.StrContains
+  !insertmacro StrContainsBody
+FunctionEnd
+!define UN ""
+Function StopService
+  !insertmacro StopServiceBody
+FunctionEnd
+!undef UN
+!define UN "un."
+Function un.StopService
+  !insertmacro StopServiceBody
+FunctionEnd
+!undef UN
 
 Section "${APP} (required)" SecMain
   SectionIn RO
@@ -128,14 +204,48 @@ Section "${APP} (required)" SecMain
   SetShellVarContext all
   DetailPrint "Stopping ${APP} if it is running…"
   Call StopService
+  ; Permissions are set on the whole install folder, so it must be this program's own folder:
+  ; the previous installation's, a folder named "Serk Finance", or an empty one.
+  ${If} ${FileExists} "$INSTDIR\*.*"
+  ${AndIf} $INSTDIR != $PREVDIR
+    StrCpy $0 $INSTDIR "" -12
+    ${If} $0 != "Serk Finance"
+      FindFirst $1 $2 "$INSTDIR\*.*"
+      StrCpy $3 0
+      ${DoWhile} $2 != ""
+        ${If} $2 != "."
+        ${AndIf} $2 != ".."
+          StrCpy $3 1
+        ${EndIf}
+        FindNext $1 $2
+      ${Loop}
+      FindClose $1
+      ${If} $3 == 1
+        MessageBox MB_ICONSTOP "$INSTDIR is not empty. Choose an empty folder, or a folder named Serk Finance." /SD IDOK
+        Abort
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+  CreateDirectory "$INSTDIR"
+  ; The service runs these programs: only administrators may change them, wherever installed.
+  ; The folder is locked before anything is copied into it.
+  !insertmacro LockFolder "$INSTDIR" "*S-1-5-19:(OI)(CI)RX *S-1-5-32-545:(OI)(CI)RX"
   SetOutPath "$INSTDIR"
   File /r "${SRC}\*.*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   DetailPrint "Preparing the data folder $DATA…"
+  ; A data folder that exists without a recorded installation may have been prepared by
+  ; someone else: it is used only when an administrator confirms (never in a silent install).
+  ReadRegStr $0 HKLM "${UNINSTKEY}" "DisplayVersion"
+  ${If} $0 == ""
+  ${AndIf} ${FileExists} "$DATA\*.*"
+    MessageBox MB_YESNO|MB_ICONQUESTION "$DATA already exists (for example, data kept from an earlier installation).$\r$\n$\r$\nUse it? Choose No to stop; then move that folder away if you do not know where it came from." /SD IDNO IDYES +2
+    Abort
+  ${EndIf}
   CreateDirectory "$DATA"
-  ; Administrators and SYSTEM: full control; LocalService (the service account): modify. No access for other users.
-  nsExec::ExecToLog 'icacls "$DATA" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-19:(OI)(CI)M'
+  ; LocalService (the service account) may modify; other users have no access.
+  !insertmacro LockFolder "$DATA" "*S-1-5-19:(OI)(CI)M"
 
   StrCpy $LOCALONLY ""
   ${IfNot} ${SectionIsSelected} 1
@@ -149,13 +259,31 @@ Section "${APP} (required)" SecMain
   ${Else}
     nsExec::ExecToLog 'sc.exe create ${SERVICE} binPath= "\"$INSTDIR\serk-server.exe\" service --data \"$DATA\"$LOCALONLY" start= delayed-auto obj= "NT AUTHORITY\LocalService" DisplayName= "${APP}"'
   ${EndIf}
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "Could not register the ${SERVICE} service (sc.exe exit $0). See the details above." /SD IDOK
+    Abort
+  ${EndIf}
   nsExec::ExecToLog 'sc.exe description ${SERVICE} "Serk Finance accounting server: database and web application on port ${PORT}."'
+  Pop $0
   nsExec::ExecToLog 'sc.exe failure ${SERVICE} reset= 86400 actions= restart/60000/restart/60000//'
+  Pop $0
+  ; Also restart after the service stops with an error, not only after a crash.
+  nsExec::ExecToLog 'sc.exe failureflag ${SERVICE} 1'
+  Pop $0
+  ; The office-network rule is added again below only when that option is ticked.
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP}"'
+  Pop $0
   DetailPrint "Starting ${APP}…"
   nsExec::ExecToLog 'sc.exe start ${SERVICE}'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION "${APP} was installed but did not start (sc.exe exit $0). Restart the computer, or see $DATA\logs." /SD IDOK
+  ${EndIf}
 
   WriteRegStr HKLM "Software\SerkFinance" "InstallDir" "$INSTDIR"
   WriteRegStr HKLM "Software\SerkFinance" "DataDir" "$DATA"
+  WriteRegStr HKLM "Software\SerkFinance" "Version4" "${VERSION4}"
   WriteRegStr HKLM "${UNINSTKEY}" "DisplayName" "${APP}"
   WriteRegStr HKLM "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKLM "${UNINSTKEY}" "Publisher" "Serk Technologies Group"
@@ -169,7 +297,6 @@ SectionEnd
 
 Section "Allow other computers in the office to connect" SecNet
   DetailPrint "Opening port ${PORT} for the office network (private and domain networks only)…"
-  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP}"'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="${APP}" dir=in action=allow protocol=TCP localport=${PORT} profile=private,domain program="$INSTDIR\serk-server.exe"'
 SectionEnd
 
@@ -206,8 +333,7 @@ Section "Uninstall"
   SetRegView 64
   SetShellVarContext all
   DetailPrint "Stopping and removing the ${SERVICE} service…"
-  nsExec::ExecToLog 'sc.exe stop ${SERVICE}'
-  Sleep 8000
+  Call un.StopService
   nsExec::ExecToLog 'sc.exe delete ${SERVICE}'
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP}"'
   Delete "$SMPROGRAMS\${APP}\*.*"
@@ -224,7 +350,7 @@ Section "Uninstall"
   Delete "$INSTDIR\THIRD-PARTY-NOTICES.txt"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
-  MessageBox MB_YESNO|MB_ICONEXCLAMATION|MB_DEFBUTTON2 "Also delete ALL company data and backups in $DATA?$\r$\n$\r$\nChoose No to keep them (recommended) so a later installation can use them again." IDNO keep
+  MessageBox MB_YESNO|MB_ICONEXCLAMATION|MB_DEFBUTTON2 "Also delete ALL company data and backups in $DATA?$\r$\n$\r$\nChoose No to keep them (recommended) so a later installation can use them again." /SD IDNO IDNO keep
     RMDir /r "$DATA"
   keep:
   DeleteRegKey HKLM "${UNINSTKEY}"

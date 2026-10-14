@@ -17,3 +17,4 @@ test-results/
 playwright-report/
 .cache/
 /serk-server
+/web/.unit-build/

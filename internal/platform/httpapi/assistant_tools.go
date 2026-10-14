@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -20,9 +22,10 @@ import (
 func schema(s string) json.RawMessage { return json.RawMessage(s) }
 
 const dateProp = `{"type":"string","description":"Date as YYYY-MM-DD"}`
+const branchProp = `{"type":"string","description":"Branch code, for example HQ. Needed when the user may draft in more than one branch."}`
 
 var assistantToolList = []assistant.Tool{
-	{Name: "company_overview", Description: "Key figures for today: cash, receivables, payables, revenue and expenses this period, items awaiting approval.",
+	{Name: "company_overview", Description: "The dashboard as of today: the headline balances and period results the user's role may see, and work waiting for approval.",
 		Schema: schema(`{"type":"object","properties":{}}`)},
 	{Name: "trial_balance", Description: "Trial balance as of a date (optionally only movements from a start date). Money in minor units.",
 		Schema: schema(`{"type":"object","properties":{"as_of":` + dateProp + `,"from":` + dateProp + `},"required":["as_of"]}`)},
@@ -51,11 +54,11 @@ var assistantToolList = []assistant.Tool{
 	{Name: "review_entries", Description: "Audit-style review of journals in a date range: flags manual entries to revenue, round or unusually large amounts, weekend dates, and drafts or submissions waiting more than 7 days. Use for 'anything unusual?' or before closing a period.",
 		Schema: schema(`{"type":"object","properties":{"from":` + dateProp + `,"to":` + dateProp + `},"required":["from","to"]}`)},
 	{Name: "draft_journal", Description: "Prepare a DRAFT manual journal for people to review, submit and approve. Lines must balance. Do not use it for invoices, bills, payroll or controlled accounts (receivables, payables, VAT, payroll liabilities, inventory) — those have their own documents or adjustments.",
-		Schema: schema(`{"type":"object","properties":{"accounting_date":` + dateProp + `,"description":{"type":"string"},"reason":{"type":"string","description":"Why, and the supporting document"},"lines":{"type":"array","minItems":2,"items":{"type":"object","properties":{"account_code":{"type":"string"},"debit":{"type":"string","description":"Major units, e.g. 20000.00"},"credit":{"type":"string"},"description":{"type":"string"}},"required":["account_code"]}}},"required":["accounting_date","description","reason","lines"]}`)},
+		Schema: schema(`{"type":"object","properties":{"branch":` + branchProp + `,"accounting_date":` + dateProp + `,"description":{"type":"string"},"reason":{"type":"string","description":"Why, and the supporting document"},"lines":{"type":"array","minItems":2,"items":{"type":"object","properties":{"account_code":{"type":"string"},"debit":{"type":"string","description":"Major units, e.g. 20000.00"},"credit":{"type":"string"},"description":{"type":"string"}},"required":["account_code"]}}},"required":["accounting_date","description","reason","lines"]}`)},
 	{Name: "draft_sales_invoice", Description: "Prepare a DRAFT sales invoice on credit for people to review, submit and approve.",
-		Schema: schema(`{"type":"object","properties":{"customer":{"type":"string","description":"Customer name"},"accounting_date":` + dateProp + `,"due_date":` + dateProp + `,"invoice_number":{"type":"string"},"lines":{"type":"array","minItems":1,"items":{"type":"object","properties":{"item":{"type":"string","description":"Item SKU or name"},"quantity":{"type":"string"},"unit_price":{"type":"string","description":"Major units, before tax"},"tax_code":{"type":"string","description":"For example VAT15; omit for no tax"}},"required":["item","quantity","unit_price"]}}},"required":["customer","accounting_date","lines"]}`)},
+		Schema: schema(`{"type":"object","properties":{"branch":` + branchProp + `,"customer":{"type":"string","description":"Customer name"},"accounting_date":` + dateProp + `,"due_date":` + dateProp + `,"invoice_number":{"type":"string","description":"Omit to use the next number in the company's invoice sequence"},"lines":{"type":"array","minItems":1,"items":{"type":"object","properties":{"item":{"type":"string","description":"Item SKU or name"},"quantity":{"type":"string"},"unit_price":{"type":"string","description":"Major units, before tax"},"tax_code":{"type":"string","description":"For example VAT15; omit for no tax"}},"required":["item","quantity","unit_price"]}}},"required":["customer","accounting_date","lines"]}`)},
 	{Name: "draft_supplier_bill", Description: "Prepare a DRAFT supplier bill on credit for people to review, submit and approve.",
-		Schema: schema(`{"type":"object","properties":{"vendor":{"type":"string","description":"Vendor name"},"accounting_date":` + dateProp + `,"due_date":` + dateProp + `,"bill_number":{"type":"string","description":"The supplier's invoice number"},"lines":{"type":"array","minItems":1,"items":{"type":"object","properties":{"item":{"type":"string"},"quantity":{"type":"string"},"unit_price":{"type":"string"},"tax_code":{"type":"string"}},"required":["item","quantity","unit_price"]}}},"required":["vendor","accounting_date","bill_number","lines"]}`)},
+		Schema: schema(`{"type":"object","properties":{"branch":` + branchProp + `,"vendor":{"type":"string","description":"Vendor name"},"accounting_date":` + dateProp + `,"due_date":` + dateProp + `,"bill_number":{"type":"string","description":"The supplier's invoice number"},"lines":{"type":"array","minItems":1,"items":{"type":"object","properties":{"item":{"type":"string"},"quantity":{"type":"string"},"unit_price":{"type":"string"},"tax_code":{"type":"string"}},"required":["item","quantity","unit_price"]}}},"required":["vendor","accounting_date","bill_number","lines"]}`)},
 }
 
 type assistantTools struct {
@@ -85,6 +88,9 @@ func toolError(e error) error {
 			msg += " (field " + pg.Detail + ")"
 		}
 		return &assistant.ToolError{Code: pg.Message, Message: msg}
+	}
+	if errors.As(e, &pg) && pg.Code == "23505" {
+		return &assistant.ToolError{Code: "duplicate_number", Message: "That document number is already used in this company. Use another number."}
 	}
 	if errors.As(e, &pg) && pg.Code == "42501" {
 		return &assistant.ToolError{Code: "permission_denied", Message: "The user's role does not allow this."}
@@ -121,13 +127,14 @@ func date(v string, field string) (string, error) {
 
 // major converts a decimal amount in the major unit ("20,000.50") to an exact minor-unit string.
 func major(v string, places int) (string, error) {
-	v = strings.ReplaceAll(strings.TrimSpace(v), ",", "")
+	v = strings.TrimSpace(v)
 	if v == "" {
 		return "0", nil
 	}
-	if !regexp.MustCompile(`^[0-9]{1,20}(\.[0-9]+)?$`).MatchString(v) {
+	if !amountPattern.MatchString(v) {
 		return "", bad("amounts must be positive decimal numbers such as 20000.00")
 	}
+	v = strings.ReplaceAll(v, ",", "")
 	r, ok := new(big.Rat).SetString(v)
 	if !ok {
 		return "", bad("invalid amount " + v)
@@ -139,31 +146,50 @@ func major(v string, places int) (string, error) {
 	return r.Num().String(), nil
 }
 
+// amountPattern accepts 20000.50 or 20,000.50. A comma is only a thousands separator, so a
+// decimal comma ("20000,50") is refused rather than read as 2,000,050.
+var amountPattern = regexp.MustCompile(`^([0-9]{1,20}|[0-9]{1,3}(,[0-9]{3}){1,6})(\.[0-9]+)?$`)
+var quantityPattern = regexp.MustCompile(`^([0-9]{1,12}|[0-9]{1,3}(,[0-9]{3}){1,3})(\.[0-9]{1,6})?$`)
+
+// likeText escapes LIKE wildcards so a search for "50%" or "A_B" means those characters.
+func likeText(v string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(v)
+}
+
+// cut shortens text to at most n bytes without splitting a character.
+func cut(v string, n int) string {
+	if len(v) <= n {
+		return v
+	}
+	for n > 0 && !utf8.RuneStart(v[n]) {
+		n--
+	}
+	return v[:n] + "…"
+}
+
 func (t *assistantTools) key(tool string) string {
 	t.seq++
 	return fmt.Sprintf("ai:%s:%s:%d", t.nonce, tool, t.seq)
 }
 
 func (t *assistantTools) reason(given string) string {
-	given = strings.TrimSpace(given)
-	req := t.request
-	if len(req) > 300 {
-		req = req[:300] + "…"
+	// The AI note comes first so a long reason can never cut it off.
+	out := "Prepared by the AI assistant at the user's request: " + cut(strings.TrimSpace(t.request), 300)
+	if given = strings.TrimSpace(given); given != "" {
+		out += " — Reason: " + given
 	}
-	out := "Prepared by the AI assistant at the user's request: " + req
-	if given != "" {
-		out = given + " — " + out
-	}
-	if len(out) > 1000 {
-		out = out[:1000]
-	}
-	return out
+	return cut(out, 990)
 }
 
 func (t *assistantTools) Execute(ctx context.Context, name string, input json.RawMessage) (any, *assistant.Draft, error) {
 	v, d, e := t.execute(name, input)
 	if e != nil {
-		return nil, nil, toolError(e)
+		te := toolError(e)
+		var safe *assistant.ToolError
+		if !errors.As(te, &safe) {
+			slog.Error("assistant_tool_failed", "request_id", requestID(t.r), "tool", name, "error", e.Error())
+		}
+		return nil, nil, te
 	}
 	return v, d, nil
 }
@@ -316,12 +342,12 @@ func (t *assistantTools) execute(name string, input json.RawMessage) (any, *assi
 			table, perm = "invoicing.vendors", "purchases.read"
 		}
 		return t.module(perm, `SELECT coalesce(jsonb_agg(jsonb_build_object('name',name,'email',email,'phone',phone,'tin',tax_id,'active',active) ORDER BY name),'[]')
-			FROM (SELECT * FROM `+table+` WHERE name ILIKE '%'||$1||'%' ORDER BY name LIMIT 25) t`, str("search"))
+			FROM (SELECT * FROM `+table+` WHERE name ILIKE '%'||$1||'%' ORDER BY name LIMIT 25) t`, likeText(str("search")))
 	case "find_items":
 		return t.module("inventory.read", `SELECT coalesce(jsonb_agg(jsonb_build_object('sku',i.sku,'name',i.name,'type',i.type,'unit_price_minor',i.unit_price::text,
 			'stock_quantity',coalesce(p.quantity,0)::text,'stock_value_minor',coalesce(p.value_minor,0)::text) ORDER BY i.name),'[]')
 			FROM (SELECT * FROM inventory.items WHERE active AND (name ILIKE '%'||$1||'%' OR sku ILIKE '%'||$1||'%') ORDER BY name LIMIT 25) i
-			LEFT JOIN finance.positions p ON p.item_id=i.id`, str("search"))
+			LEFT JOIN finance.positions p ON p.item_id=i.id`, likeText(str("search")))
 	case "review_entries":
 		from, e := date(str("from"), "from")
 		if e != nil {
@@ -374,12 +400,13 @@ func (t *assistantTools) draftJournal(in map[string]any) (any, *assistant.Draft,
 	if _, e := date(p.Date, "accounting_date"); e != nil {
 		return nil, nil, e
 	}
-	if t.ac.Branch == "" {
-		return nil, nil, &assistant.ToolError{Code: "permission_denied", Message: "The user has no branch they may post to."}
+	branch, code, e := t.branch(in, "journal")
+	if e != nil {
+		return nil, nil, e
 	}
-	j := accounting.CreateJournal{BranchID: t.ac.Branch, Date: p.Date, Description: strings.TrimSpace(p.Description), Currency: t.ac.Currency, FXRate: "1", Reason: t.reason(p.Reason)}
+	j := accounting.CreateJournal{BranchID: branch, Date: p.Date, Description: strings.TrimSpace(p.Description), Currency: t.ac.Currency, FXRate: "1", Reason: t.reason(p.Reason)}
 	var out json.RawMessage
-	e := t.s.scoped(t.r, func(tx pgx.Tx) error {
+	e = t.s.scoped(t.r, func(tx pgx.Tx) error {
 		for i, l := range p.Lines {
 			var id string
 			if err := tx.QueryRow(t.r.Context(), `SELECT id::text FROM ledger.accounts WHERE company_id=security.company() AND code=$1`, strings.TrimSpace(l.Code)).Scan(&id); err != nil {
@@ -413,7 +440,7 @@ func (t *assistantTools) draftJournal(in map[string]any) (any, *assistant.Draft,
 		State  string `json:"state"`
 	}
 	_ = json.Unmarshal(out, &created)
-	return map[string]any{"status": "draft_created", "number": created.Number, "state": created.State,
+	return map[string]any{"status": "draft_created", "number": created.Number, "state": created.State, "branch": code,
 			"next": "A person must review and submit it; a different authorised person approves and posts it."},
 		&assistant.Draft{Kind: "JOURNAL", ID: created.ID, Number: created.Number, Summary: j.Description}, nil
 }
@@ -452,34 +479,51 @@ func (t *assistantTools) draftDocument(kind string, in map[string]any) (any, *as
 			return nil, nil, bad("bill_number (the supplier's invoice number) is required")
 		}
 	}
-	if strings.TrimSpace(number) == "" {
-		number = "DRAFT-" + strings.ReplaceAll(p.Date, "-", "") + "-" + strings.ToUpper(t.nonce[:6])
+	perm := "sales"
+	if kind == "BILL" {
+		perm = "purchases"
 	}
-	body := map[string]any{"branch_id": t.ac.Branch, "accounting_date": p.Date, "due_date": p.Due, "settlement_type": "CREDIT", numberKey: strings.TrimSpace(number)}
+	branch, code, e := t.branch(in, perm)
+	if e != nil {
+		return nil, nil, e
+	}
+	numbered := ""
+	if strings.TrimSpace(number) == "" {
+		if number, e = t.nextNumber(kind); e != nil {
+			return nil, nil, e
+		}
+		numbered = "next in the company's sequence"
+	}
+	body := map[string]any{"branch_id": branch, "accounting_date": p.Date, "due_date": p.Due, "settlement_type": "CREDIT", numberKey: strings.TrimSpace(number), "reason": t.reason("")}
 	var out json.RawMessage
-	e := t.s.scoped(t.r, func(tx pgx.Tx) error {
+	e = t.s.scoped(t.r, func(tx pgx.Tx) error {
 		ctx := t.r.Context()
-		partyID, err := uniqueID(ctx, tx, `SELECT id::text FROM `+table+` WHERE active AND lower(name)=lower($1)`, `SELECT id::text FROM `+table+` WHERE active AND name ILIKE '%'||$1||'%'`, strings.TrimSpace(party))
+		partyID, err := uniqueID(ctx, tx, `SELECT id::text,name FROM `+table+` WHERE active AND lower(name)=lower($1)`, `SELECT id::text,name FROM `+table+` WHERE active AND name ILIKE '%'||$2||'%' ESCAPE '\'`, strings.TrimSpace(party))
 		if err != nil {
 			return err
 		}
 		if partyID == "" {
-			return bad("could not identify exactly one active party named " + party + "; use find_parties")
+			return bad("no active customer or vendor named " + party + "; use find_parties")
 		}
 		body[partyKey] = partyID
 		var lines []map[string]any
 		for i, l := range p.Lines {
-			itemID, err := uniqueID(ctx, tx, `SELECT id::text FROM inventory.items WHERE active AND (sku=$1 OR lower(name)=lower($1))`, `SELECT id::text FROM inventory.items WHERE active AND name ILIKE '%'||$1||'%'`, strings.TrimSpace(l.Item))
+			itemID, err := uniqueID(ctx, tx, `SELECT id::text,name FROM inventory.items WHERE active AND (sku=$1 OR lower(name)=lower($1))`, `SELECT id::text,name FROM inventory.items WHERE active AND (name ILIKE '%'||$2||'%' ESCAPE '\' OR sku ILIKE '%'||$2||'%' ESCAPE '\')`, strings.TrimSpace(l.Item))
 			if err != nil {
+				var te *assistant.ToolError
+				if errors.As(err, &te) {
+					te.Message = fmt.Sprintf("line %d: %s", i+1, te.Message)
+				}
 				return err
 			}
 			if itemID == "" {
-				return bad(fmt.Sprintf("line %d: could not identify exactly one item %q; use find_items", i+1, l.Item))
+				return bad(fmt.Sprintf("line %d: no active item %q that this user can see; use find_items", i+1, l.Item))
 			}
-			qty := strings.ReplaceAll(strings.TrimSpace(l.Quantity), ",", "")
-			if !regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,6})?$`).MatchString(qty) {
-				return bad(fmt.Sprintf("line %d: quantity must be a positive number", i+1))
+			qty := strings.TrimSpace(l.Quantity)
+			if !quantityPattern.MatchString(qty) {
+				return bad(fmt.Sprintf("line %d: quantity must be a positive number such as 12 or 1,500.5", i+1))
 			}
+			qty = strings.ReplaceAll(qty, ",", "")
 			price, err2 := major(l.Price, t.ac.Places)
 			if err2 != nil {
 				return err2
@@ -510,33 +554,90 @@ func (t *assistantTools) draftDocument(kind string, in map[string]any) (any, *as
 		Total    string `json:"total_amount"`
 	}
 	_ = json.Unmarshal(out, &created)
-	return map[string]any{"status": "draft_created", "number": created.Number, "state": created.State, "subtotal_minor": created.Subtotal,
+	return map[string]any{"status": "draft_created", "number": created.Number, "numbering": numbered, "branch": code, "state": created.State, "subtotal_minor": created.Subtotal,
 			"tax_minor": created.Tax, "total_minor": created.Total, "next": "A person must review and submit it; a different authorised person approves it."},
 		&assistant.Draft{Kind: kind, ID: created.ID, Number: created.Number, Summary: party}, nil
 }
 
-// uniqueID returns the single id matched exactly, else the single id matched loosely, else "".
+// uniqueID returns the id of the single row matched exactly (by $1), else the single row
+// matched loosely (by $2, a LIKE-escaped fragment). Several loose matches are reported by name
+// so the model can ask which one was meant.
 func uniqueID(ctx context.Context, tx pgx.Tx, exact, loose, arg string) (string, error) {
 	if arg == "" {
 		return "", nil
 	}
-	for _, q := range []string{exact, loose} {
-		rows, e := tx.Query(ctx, q+" LIMIT 2", arg)
+	type match struct{ ID, Name string }
+	for i, q := range []string{exact, loose} {
+		args := []any{arg}
+		if i == 1 {
+			q = strings.Replace(q, "$2", "$1", -1)
+			args = []any{likeText(arg)}
+		}
+		rows, e := tx.Query(ctx, q+" ORDER BY 2 LIMIT 6", args...)
 		if e != nil {
 			return "", e
 		}
-		ids, e := pgx.CollectRows(rows, pgx.RowTo[string])
+		found, e := pgx.CollectRows(rows, pgx.RowToStructByPos[match])
 		if e != nil {
 			return "", e
 		}
-		if len(ids) == 1 {
-			return ids[0], nil
+		if len(found) == 1 {
+			return found[0].ID, nil
 		}
-		if len(ids) > 1 {
-			return "", nil
+		if len(found) > 1 {
+			names := make([]string, 0, len(found))
+			for _, f := range found[:min(5, len(found))] {
+				names = append(names, f.Name)
+			}
+			more := ""
+			if len(found) > 5 {
+				more = ", …"
+			}
+			return "", &assistant.ToolError{Code: "ambiguous_name", Message: fmt.Sprintf("%q matches several: %s%s. Ask which one.", arg, strings.Join(names, ", "), more)}
 		}
 	}
 	return "", nil
+}
+
+// branch picks the branch for a draft: the one named, or the only one the user may use.
+func (t *assistantTools) branch(in map[string]any, kind string) (string, string, error) {
+	want, _ := in["branch"].(string)
+	want = strings.ToUpper(strings.TrimSpace(want))
+	var allowed []int
+	for i, b := range t.ac.Branches {
+		ok := (kind == "journal" && b.Journal) || (kind == "sales" && b.Sales) || (kind == "purchases" && b.Purchases)
+		if !ok {
+			continue
+		}
+		if want != "" && strings.ToUpper(b.Code) == want {
+			return b.ID, b.Code, nil
+		}
+		allowed = append(allowed, i)
+	}
+	codes := make([]string, 0, len(allowed))
+	for _, i := range allowed {
+		codes = append(codes, t.ac.Branches[i].Code)
+	}
+	switch {
+	case len(allowed) == 0:
+		return "", "", &assistant.ToolError{Code: "permission_denied", Message: "The user's role does not allow drafting this in any branch."}
+	case want != "":
+		return "", "", bad("the user cannot draft this in branch " + want + "; allowed: " + strings.Join(codes, ", "))
+	case len(allowed) > 1:
+		return "", "", &assistant.ToolError{Code: "branch_required", Message: "Several branches are possible (" + strings.Join(codes, ", ") + "). Ask the user which branch, then pass branch."}
+	}
+	b := t.ac.Branches[allowed[0]]
+	return b.ID, b.Code, nil
+}
+
+// nextNumber continues the company's latest invoice or bill number (INV-000041 -> INV-000042).
+// The database checks every document of that kind in the company, not only those this user sees.
+func (t *assistantTools) nextNumber(kind string) (string, error) {
+	var out string
+	e := t.s.scoped(t.r, func(tx pgx.Tx) error {
+		return tx.QueryRow(t.r.Context(), `SELECT finance.next_document_number($1)`, kind).Scan(&out)
+	})
+	return out, e
 }
 
 // reviewEntriesSQL flags journals an auditor would look at first. It reads only what the
@@ -553,6 +654,6 @@ const reviewEntriesSQL = `WITH j AS (
    CASE WHEN (SELECT median FROM m)>0 AND j.total>5*(SELECT median FROM m) THEN 'unusually_large' END,
    CASE WHEN extract(isodow FROM j.accounting_date) IN (6,7) THEN 'weekend_date' END,
    CASE WHEN j.state IN('DRAFT','SUBMITTED','APPROVED') AND j.created_at<now()-interval '7 days' THEN 'waiting_over_7_days' END],NULL) AS flags FROM j)
- SELECT jsonb_build_object('journals_reviewed',(SELECT count(*) FROM j),'median_total_minor',(SELECT median FROM m)::bigint::text,
+ SELECT jsonb_build_object('journals_reviewed',(SELECT count(*) FROM j),'median_total_minor',round((SELECT median FROM m)::numeric)::text,
   'flagged',coalesce((SELECT jsonb_agg(jsonb_build_object('number',number,'date',accounting_date,'description',description,'source',source_type,
    'state',state,'total_minor',total::text,'flags',flags) ORDER BY cardinality(flags) DESC,total DESC) FROM (SELECT * FROM f WHERE cardinality(flags)>0 ORDER BY cardinality(flags) DESC,total DESC LIMIT 50) x),'[]'::jsonb))`

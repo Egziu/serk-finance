@@ -52,7 +52,7 @@ import {
   Settings2,
   Sparkles,
 } from "lucide-react";
-import { AssistantPanel } from "./AssistantPanel";
+import { AssistantPanel, clearAssistantHistory } from "./AssistantPanel";
 import { api, APIError } from "./api";
 import type { Session, Reference, Journal, Trial, Audit } from "./types";
 import "./style.css";
@@ -105,6 +105,7 @@ function App() {
   function report(e: unknown) {
     setError(e instanceof Error ? e.message : "Request failed.");
     if (e instanceof APIError && e.status === 401) {
+      clearAssistantHistory();
       setSession(null);
       setCompany("");
       setRef(null);
@@ -329,6 +330,7 @@ function App() {
       setSelected(null);
       setProfileOpen(false);
       clearIdentity();
+      clearAssistantHistory();
       setIdentity(null);
     } catch (e) {
       report(e);
@@ -724,6 +726,8 @@ function App() {
       )}
       {assistantOpen && company && feature("ai_assistant") && held("ai.use") && (
         <AssistantPanel
+          key={session.user_id + ":" + company}
+          user={session.user_id}
           company={company}
           csrf={session.csrf_token}
           screen={view === "detail" && selected ? ("journal " + selected.number).slice(0, 60) : view}

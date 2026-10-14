@@ -16,7 +16,7 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t, _ := auth.Token()
 		id := truncate(t, 22)
-		ctx, cancel := context.WithTimeout(context.WithValue(r.Context(), requestKey, id), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.WithValue(r.Context(), requestKey, id), requestTimeout(r))
 		defer cancel()
 		r = r.WithContext(ctx)
 		w.Header().Set("X-Request-ID", id)
@@ -106,4 +106,13 @@ func (s *Server) allowedOrigin(o string) bool {
 		}
 	}
 	return false
+}
+
+// requestTimeout bounds each request. The assistant's chat waits on an outside model across
+// several tool rounds, so it gets its own, longer limit (the handler sets a tighter one).
+func requestTimeout(r *http.Request) time.Duration {
+	if r.Method == http.MethodPost && r.URL.Path == "/api/v1/assistant/chat" {
+		return 150 * time.Second
+	}
+	return 15 * time.Second
 }

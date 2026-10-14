@@ -30,7 +30,7 @@ button:disabled{opacity:.6;cursor:wait}
 <div class="brand"><i></i>SERK Finance</div>
 <div id="form-view">
 <h1>Set up your company</h1>
-<p class="lead">This creates your company, its chart of accounts and the first administrator. It takes about a minute. You can change everything later in the application.</p>
+<p class="lead">This creates your company, its chart of accounts and the first administrator. It takes about a minute; keep this page open until it finishes. You can change everything later in the application.</p>
 <div id="error" class="error" role="alert" hidden></div>
 <form id="setup" novalidate>
 <section>
@@ -65,7 +65,7 @@ button:disabled{opacity:.6;cursor:wait}
 <section>
 <h2>Practice workspace (optional)</h2>
 <div class="grid">
-<label class="check full"><input type="checkbox" name="practice_workspace"> Also create the "demo" practice workspace with sample data, for training. Its users (admin@serk.demo, accountant@serk.demo, …) use the administrator password above.</label>
+<label class="check full"><input type="checkbox" name="practice_workspace"> Also create the "demo" practice workspace with sample data, for training. Its users (admin@serk.demo, accountant@serk.demo, …) get their own password, shown when setup finishes.</label>
 </div>
 </section>
 <button id="submit" type="submit">Create my company</button>
@@ -76,6 +76,7 @@ button:disabled{opacity:.6;cursor:wait}
 <section>
 <p>Sign in with workspace <strong id="done-ws"></strong> and email <strong id="done-email"></strong>.</p>
 <p class="muted">Other computers in the office can open this same address in their browser.</p>
+<div id="practice" hidden><p>Practice workspace <strong>demo</strong>: sign in as <strong>admin@serk.demo</strong> or <strong>accountant@serk.demo</strong> with password <strong id="practice-password" style="font-family:ui-monospace,monospace"></strong></p><p class="muted">Write it down now. It is also kept in serk.json in the data folder.</p></div>
 <button id="go" type="button">Go to sign in</button>
 </section>
 </div>
@@ -109,6 +110,7 @@ button:disabled{opacity:.6;cursor:wait}
       .then(function(x){
         if(!x.ok)throw new Error(x.j.error||'Setup failed.');
         document.getElementById('done-ws').textContent=x.j.workspace;document.getElementById('done-email').textContent=x.j.email;
+        if(x.j.practice_password){document.getElementById('practice-password').textContent=x.j.practice_password;document.getElementById('practice').hidden=false;}
         document.getElementById('form-view').hidden=true;document.getElementById('done-view').hidden=false;
       })
       .catch(function(e){fail(e.message);btn.disabled=false;btn.textContent='Create my company';});

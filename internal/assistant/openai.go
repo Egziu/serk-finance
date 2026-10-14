@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -67,10 +68,10 @@ func (o *openAI) Complete(ctx context.Context, r Request) (Response, error) {
 	}
 	resp, e := o.http.Do(req)
 	if e != nil {
-		return Response{}, &ProviderError{Code: "assistant_unavailable", Status: 503, Detail: e.Error()}
+		return Response{}, transportError(ctx, e)
 	}
 	defer resp.Body.Close()
-	data, e := readLimited(resp)
+	data, e := readLimited(ctx, resp)
 	if e != nil {
 		return Response{}, e
 	}
@@ -100,7 +101,10 @@ func (o *openAI) Complete(ctx context.Context, r Request) (Response, error) {
 	if c.Message.Content != nil && *c.Message.Content != "" {
 		res.Content = append(res.Content, Block{Type: "text", Text: *c.Message.Content})
 	}
-	for _, call := range c.Message.ToolCalls {
+	for i, call := range c.Message.ToolCalls {
+		if call.ID == "" { // some local servers omit the id; results must still pair with calls
+			call.ID = fmt.Sprintf("call_%d", i)
+		}
 		input := json.RawMessage(call.Function.Arguments)
 		if !json.Valid(input) {
 			input = json.RawMessage(`{}`)

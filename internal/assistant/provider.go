@@ -107,7 +107,7 @@ func New(c Config) (Provider, error) {
 	if e := ValidateBaseURL(c.BaseURL, c.AllowPrivateHTTP); e != nil {
 		return nil, e
 	}
-	client := &http.Client{Timeout: callTimeout}
+	client := &http.Client{Timeout: callTimeout, CheckRedirect: refuseRedirect}
 	switch c.Provider {
 	case "anthropic":
 		if c.APIKey == "" {
@@ -118,6 +118,24 @@ func New(c Config) (Provider, error) {
 		return &openAI{cfg: c, http: client}, nil
 	}
 	return nil, fmt.Errorf("unknown provider %q", c.Provider)
+}
+
+// refuseRedirect stops the client from following a redirect, which would send the API key and
+// the company's figures to another address (or downgrade to plain HTTP).
+func refuseRedirect(*http.Request, []*http.Request) error { return errRedirect }
+
+var errRedirect = errors.New("the assistant service redirected the request; redirects are not followed")
+
+// transportError reports a failed call. A cancelled or expired request keeps its context error,
+// so the caller can answer "timed out" rather than "unavailable".
+func transportError(ctx context.Context, e error) error {
+	if ce := ctx.Err(); ce != nil {
+		return ce
+	}
+	if errors.Is(e, errRedirect) {
+		return &ProviderError{Code: "assistant_redirect_refused", Status: 502, Detail: "redirect refused"}
+	}
+	return &ProviderError{Code: "assistant_unavailable", Status: 503, Detail: e.Error()}
 }
 
 // ValidateBaseURL accepts HTTPS anywhere and plain HTTP only on this machine (or, when allowed,
@@ -144,9 +162,12 @@ func ValidateBaseURL(raw string, allowPrivateHTTP bool) error {
 	return errors.New("invalid_base_url")
 }
 
-func readLimited(resp *http.Response) ([]byte, error) {
+func readLimited(ctx context.Context, resp *http.Response) ([]byte, error) {
 	const limit = 2 << 20
 	body, e := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if e != nil && ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	if e != nil {
 		return nil, &ProviderError{Code: "assistant_unavailable", Status: 502, Detail: e.Error()}
 	}

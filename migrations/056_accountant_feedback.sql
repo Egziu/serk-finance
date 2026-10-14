@@ -19,7 +19,7 @@ SET search_path=pg_catalog,ledger,security,pg_temp AS $$
 DECLARE a ledger.accounts;
 BEGIN
  IF nullif(btrim(coalesce(p_id,'')),'') IS NULL THEN RAISE EXCEPTION 'account_required' USING ERRCODE='23514',DETAIL=p_field; END IF;
- IF p_id !~ '^[0-9a-fA-F-]{36}$' THEN RAISE EXCEPTION 'account_type_not_allowed' USING ERRCODE='23514',DETAIL=p_field; END IF;
+ IF p_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RAISE EXCEPTION 'account_type_not_allowed' USING ERRCODE='23514',DETAIL=p_field; END IF;
  SELECT * INTO a FROM ledger.accounts WHERE id=p_id::uuid AND tenant_id=security.tenant() AND company_id=security.company();
  IF NOT FOUND OR NOT a.active OR NOT a.posting_allowed OR NOT a.type=ANY(p_types) THEN
   RAISE EXCEPTION 'account_type_not_allowed' USING ERRCODE='23514',DETAIL=p_field; END IF;
@@ -34,10 +34,13 @@ SET search_path=pg_catalog,finance,security,pg_temp AS $$
  UNION
  SELECT k,(s.accounts->>k)::uuid FROM finance.settings s,
   unnest(ARRAY['receivable','payable','output_tax','input_tax','payroll_payable','payroll_tax','pension_payable']) k
- WHERE s.company_id=security.company() AND nullif(s.accounts->>k,'') IS NOT NULL
+ WHERE s.company_id=security.company() AND s.accounts->>k ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
  UNION
  SELECT 'cash',x::uuid FROM finance.settings s,jsonb_array_elements_text(coalesce(s.accounts->'cash_accounts','[]')) x
- WHERE s.company_id=security.company()
+ WHERE s.company_id=security.company() AND x ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ UNION
+ SELECT 'inventory',i.asset_account_id FROM inventory.items i
+ WHERE i.company_id=security.company() AND i.asset_account_id IS NOT NULL
 $$;
 
 CREATE OR REPLACE FUNCTION finance.get_settings() RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -57,6 +60,14 @@ DECLARE
 BEGIN
  PERFORM security.require('configuration.manage'); PERFORM security.require('ledger.read');
  IF jsonb_typeof(p)<>'object' THEN RAISE EXCEPTION 'invalid_request' USING ERRCODE='22023'; END IF;
+ -- One change at a time per company, so two people cannot map the same account concurrently.
+ PERFORM pg_advisory_xact_lock(hashtextextended('finance-settings:'||security.company()::text,0));
+ -- Adjustments and items being saved right now finish first, and new ones wait for this change,
+ -- so the checks below see every account they use.
+ LOCK TABLE finance.adjustments,inventory.items IN SHARE MODE;
+ -- A blank selection means "not mapped": drop it rather than store an empty string.
+ p:=coalesce((SELECT jsonb_object_agg(e.key,e.value) FROM jsonb_each(p) e
+  WHERE NOT (jsonb_typeof(e.value)='string' AND btrim(e.value#>>'{}')='')),'{}'::jsonb);
  FOR k IN SELECT jsonb_object_keys(p) LOOP
   IF NOT k=ANY(all_keys) THEN RAISE EXCEPTION 'invalid_request' USING ERRCODE='22023',DETAIL='mapping'; END IF;
   IF k<>'cash_accounts' AND jsonb_typeof(p->k)<>'string' THEN RAISE EXCEPTION 'account_type_not_allowed' USING ERRCODE='23514',DETAIL=k; END IF;
@@ -64,8 +75,10 @@ BEGIN
  IF jsonb_typeof(p->'cash_accounts') IS DISTINCT FROM 'array' OR jsonb_array_length(p->'cash_accounts') NOT BETWEEN 1 AND 100 THEN
   RAISE EXCEPTION 'cash_account_configuration_required' USING ERRCODE='23514',DETAIL='cash_accounts'; END IF;
  FOR x IN SELECT jsonb_array_elements_text(p->'cash_accounts') LOOP
-  cash:=cash||finance.require_account(x,ARRAY['ASSET'],'cash_accounts');
+  acc:=finance.require_account(x,ARRAY['ASSET'],'cash_accounts');
+  IF NOT acc=ANY(cash) THEN cash:=cash||acc; END IF;
  END LOOP;
+ p:=jsonb_set(p,'{cash_accounts}',to_jsonb(ARRAY(SELECT c::text FROM unnest(cash) c)));
 
  -- Kind of each mapped account, in a fixed order so the first wrong field is reported.
  FOREACH k IN ARRAY all_keys LOOP
@@ -73,6 +86,8 @@ BEGIN
   PERFORM finance.require_account(p->>k,CASE k WHEN 'receivable' THEN ARRAY['ASSET'] WHEN 'input_tax' THEN ARRAY['ASSET']
    WHEN 'opening_equity' THEN ARRAY['EQUITY'] WHEN 'retained_earnings' THEN ARRAY['EQUITY']
    WHEN 'payroll_expense' THEN ARRAY['EXPENSE'] WHEN 'pension_expense' THEN ARRAY['EXPENSE'] ELSE ARRAY['LIABILITY'] END,k);
+  -- Store the canonical form, so the same account always compares equal.
+  p:=jsonb_set(p,ARRAY[k],to_jsonb((p->>k)::uuid::text));
  END LOOP;
 
  -- Release control accounts of remapped purposes that never carried an entry.
@@ -80,7 +95,9 @@ BEGIN
   DELETE FROM finance.control_accounts c WHERE c.company_id=security.company() AND c.purpose=k
    AND c.account_id IS DISTINCT FROM nullif(p->>k,'')::uuid
    AND NOT EXISTS(SELECT FROM ledger.lines l WHERE l.account_id=c.account_id)
-   AND NOT EXISTS(SELECT FROM finance.documents d WHERE d.company_id=c.company_id AND d.control_account_id=c.account_id);
+   AND NOT EXISTS(SELECT FROM finance.documents d WHERE d.company_id=c.company_id AND d.control_account_id=c.account_id)
+   AND NOT EXISTS(SELECT FROM finance.adjustments a,jsonb_array_elements(a.lines) line
+    WHERE a.company_id=c.company_id AND a.state IN('DRAFT','SUBMITTED') AND line->>'account_id'=c.account_id::text);
  END LOOP;
 
  -- A control account serves one purpose only, and never doubles as a cash account.
@@ -91,10 +108,12 @@ BEGIN
   FOREACH other IN ARRAY control_keys LOOP
    IF other<>k AND p->>other=p->>k THEN RAISE EXCEPTION 'account_reserved' USING ERRCODE='23514',DETAIL=k; END IF;
   END LOOP;
-  IF EXISTS(SELECT FROM finance.control_accounts c WHERE c.company_id=security.company() AND c.account_id=acc AND c.purpose<>k) THEN
+  IF EXISTS(SELECT FROM finance.control_accounts c WHERE c.company_id=security.company() AND c.account_id=acc AND c.purpose<>k)
+   OR EXISTS(SELECT FROM inventory.items i WHERE i.company_id=security.company() AND i.asset_account_id=acc) THEN
    RAISE EXCEPTION 'account_reserved' USING ERRCODE='23514',DETAIL=k; END IF;
  END LOOP;
  IF EXISTS(SELECT FROM ledger.accounts a WHERE a.id=ANY(cash) AND a.control_account)
+  OR EXISTS(SELECT FROM inventory.items i WHERE i.company_id=security.company() AND i.asset_account_id=ANY(cash))
   OR EXISTS(SELECT FROM finance.control_accounts c WHERE c.company_id=security.company() AND c.account_id=ANY(cash))
  THEN RAISE EXCEPTION 'account_reserved' USING ERRCODE='23514',DETAIL='cash_accounts'; END IF;
 
@@ -108,10 +127,12 @@ BEGIN
 END $$;
 
 -- Items: name the wrong field, and keep inventory off cash and other control accounts.
-CREATE FUNCTION finance.validate_item_accounts(p jsonb) RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER
+CREATE FUNCTION finance.validate_item_accounts(p jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,finance,security,pg_temp AS $$
 DECLARE asset uuid;
 BEGIN
+ -- Serialised with account-mapping changes (finance.configure), so both see each other's accounts.
+ PERFORM pg_advisory_xact_lock(hashtextextended('finance-settings:'||security.company()::text,0));
  PERFORM finance.require_account(p->>'income_account_id',ARRAY['REVENUE','OTHER_INCOME'],'income_account_id');
  IF p->>'type'='PRODUCT' OR nullif(p->>'expense_account_id','') IS NOT NULL THEN
   PERFORM finance.require_account(p->>'expense_account_id',ARRAY['EXPENSE','COST_OF_SALES'],'expense_account_id');
@@ -217,6 +238,6 @@ BEGIN
  'held',to_jsonb(security.held_permissions()),
  'features',(SELECT jsonb_object_agg(f.code,NOT (f.code=ANY(security.disabled_features()))) FROM organization.features f),
  'people',coalesce((SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name) ORDER BY u.display_name)
-  FROM security.users u WHERE u.tenant_id=security.tenant()
+  FROM security.users u WHERE u.tenant_id=security.tenant() AND u.active
   AND EXISTS(SELECT FROM security.memberships m WHERE m.user_id=u.id AND m.company_id=security.company())),'[]'::jsonb));
 END $$;

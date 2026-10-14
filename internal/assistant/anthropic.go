@@ -67,10 +67,10 @@ func (a *anthropic) Complete(ctx context.Context, r Request) (Response, error) {
 	req.Header.Set("anthropic-version", "2023-06-01")
 	resp, e := a.http.Do(req)
 	if e != nil {
-		return Response{}, &ProviderError{Code: "assistant_unavailable", Status: 503, Detail: e.Error()}
+		return Response{}, transportError(ctx, e)
 	}
 	defer resp.Body.Close()
-	data, e := readLimited(resp)
+	data, e := readLimited(ctx, resp)
 	if e != nil {
 		return Response{}, e
 	}

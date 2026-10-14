@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { api, minor, money } from "../api";
 import { Badge, person, today, when } from "../shared";
@@ -70,7 +70,16 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
       default: return [blank(), blank()];
     }
   }
-  const choose = (kind: string) => { setPurpose(kind); setLines(template(kind)); };
+  // Whether the preparer has changed the lines since the template was filled in.
+  const edited = useRef(false);
+  const fill = (kind: string) => { edited.current = false; setLines(template(kind)); };
+  const choose = (kind: string) => { setPurpose(kind); fill(kind); };
+  // Settings and items may arrive after a kind was chosen: fill the usual accounts then, as long
+  // as nothing has been entered yet.
+  useEffect(() => {
+    if (!edited.current) setLines(template(purpose));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, items]);
   const inventoryAccounts = useMemo(() => new Set(items.filter((i) => i.type === "PRODUCT" && i.asset_account_id).map((i) => i.asset_account_id as string)), [items]);
 
   async function load() {
@@ -124,7 +133,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
   }
   const post = (path: string, body: unknown) => api<Adjustment>(path, company, { method: "POST", csrf, key: crypto.randomUUID(), body });
   const step = (a: Adjustment, action: string, why: string) => post(`/finance/adjustments/${action}`, { id: a.id, expected_version: a.version, reason: why });
-  const set = (i: number, patch: Partial<Line>) => setLines(lines.map((l, n) => (n === i ? { ...l, ...patch } : l)));
+  const set = (i: number, patch: Partial<Line>) => { edited.current = true; setLines(lines.map((l, n) => (n === i ? { ...l, ...patch } : l))); };
   // Counted stock moves at moving weighted-average cost (IAS 2); suggest exactly what the server
   // recomputes at approval: unreserved value / unreserved quantity, the exact remainder when the
   // whole unreserved balance is removed. Found stock with no average yet keeps a typed cost.
@@ -155,7 +164,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
     });
     await post("/finance/adjustments/create", { purpose, branch_id: branch, accounting_date: date, number, description, reason, lines: payload });
     setOpen(false);
-    setLines(template(purpose));
+    fill(purpose);
     setNumber("");
     setDescription("");
     setReason("");
@@ -174,7 +183,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
         </div>
         <div className="toolbar">
           <button className="secondary" onClick={() => void load()} disabled={busy}><RefreshCw size={16} />Refresh</button>
-          <button className="primary" onClick={() => { if (!open) setLines(template(purpose)); setOpen(!open); }} disabled={busy}><Plus size={16} />New adjustment</button>
+          <button className="primary" onClick={() => { if (!open) fill(purpose); setOpen(!open); }} disabled={busy}><Plus size={16} />New adjustment</button>
         </div>
       </div>
       {error && <div className="error" role="alert">{error}</div>}
@@ -208,11 +217,11 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
                     {items.filter((it) => it.asset_account_id === l.account_id).map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
                   </select>
                   <input aria-label={`Adjustment quantity ${i + 1}`} disabled={!inventory} inputMode="decimal" placeholder={inventory ? "0" : ""} value={l.quantity_delta} onChange={(e) => suggestCost(i, e.target.value)} />
-                  <button className="icon-btn" aria-label={`Remove line ${i + 1}`} disabled={lines.length <= 2} onClick={() => setLines(lines.filter((_, n) => n !== i))}><Trash2 size={16} /></button>
+                  <button className="icon-btn" aria-label={`Remove line ${i + 1}`} disabled={lines.length <= 2} onClick={() => { edited.current = true; setLines(lines.filter((_, n) => n !== i)); }}><Trash2 size={16} /></button>
                 </div>
               );
             })}
-            <button className="secondary compact" onClick={() => setLines([...lines, blank()])}><Plus size={14} />Add line</button>
+            <button className="secondary compact" onClick={() => { edited.current = true; setLines([...lines, blank()]); }}><Plus size={14} />Add line</button>
           </div>
           <div className="totals-row">
             <span>Debits {currency} {money(totals.d.toString(), places)}</span>

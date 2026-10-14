@@ -77,7 +77,7 @@ func TestAccessManagement(t *testing.T) {
 	f.login(t, "boss", "boss@example.test", adminPassword, 200)
 
 	catalog := decodeObject(t, f.request(t, "checker", "GET", "/api/v1/admin/catalog", "", nil, 200))
-	if len(catalog["permissions"].([]any)) != 22 || !catalog["me"].(map[string]any)["can_manage_users"].(bool) {
+	if len(catalog["permissions"].([]any)) != 23 || !catalog["me"].(map[string]any)["can_manage_users"].(bool) {
 		t.Fatal("catalog", catalog["me"])
 	}
 	ref := decodeObject(t, f.request(t, "checker", "GET", "/api/v1/accounting/reference", "", nil, 200))

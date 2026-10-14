@@ -21,7 +21,9 @@ http.createServer((req,res)=>{
    return reply({content:[{type:'text',text}],stop_reason:'end_turn'});
   }
   const ask=(last.content.find(b=>b.type==='text')?.text||'').toLowerCase();
-  if(ask.includes('rent'))return reply({content:[{type:'text',text:'I will prepare the entry.'},{type:'tool_use',id:'toolu_rent',name:'draft_journal',input:{accounting_date:today,description:'Office rent',reason:'Rent agreement',lines:[{account_code:'6100',debit:'20000.00'},{account_code:'1010',credit:'20000.00'}]}}],stop_reason:'tool_use'});
+  // Like a real model, it uses the branch the context names (the first one the user may draft in).
+  const branch=(/Branches the user may draft in: ([A-Z0-9_-]+) \(/.exec(body.system||'')||[])[1];
+  if(ask.includes('rent'))return reply({content:[{type:'text',text:'I will prepare the entry.'},{type:'tool_use',id:'toolu_rent',name:'draft_journal',input:{branch,accounting_date:today,description:'Office rent',reason:'Rent agreement',lines:[{account_code:'6100',debit:'20000.00'},{account_code:'1010',credit:'20000.00'}]}}],stop_reason:'tool_use'});
   if(ask.includes('vat'))return reply({content:[{type:'tool_use',id:'toolu_vat',name:'vat_report',input:{from:month,to:today}}],stop_reason:'tool_use'});
   return reply({content:[{type:'tool_use',id:'toolu_over',name:'company_overview',input:{}}],stop_reason:'tool_use'});
  });

@@ -1,3 +1,55 @@
+# 0.4.0-rc1 — AI assistant, office installers, accountant feedback fixes
+
+This candidate adds an AI assistant that answers from the books and prepares drafts, installers that run Serk Finance on an office computer with its own database, and the fixes from the first accountant test round. Everything in 0.3.0-rc1 still applies. Schema marker `0.4.0-rc1`, migrations 001–057.
+
+## AI assistant (migration 057)
+
+- **Ask the books, get drafts.** An **Assistant** button opens a side panel. Users can ask about balances, profit, VAT, unpaid invoices or any account, or ask for an audit-style review of entries. They can also ask for a draft journal, sales invoice or supplier bill. The panel shows which tools the assistant used and links to each draft for review.
+- **Drafts only.** The assistant has 17 tools: 14 read reports, ledgers, journals, documents, VAT and integrity status, or review entries; 3 create DRAFT journals, invoices and bills. Nothing is submitted, approved, posted, paid, reversed or voided by the AI. Every draft goes through the existing maker-checker workflow.
+- **Acts as the user.** Every tool runs in its own database transaction as the signed-in user, so row-level security, branch scope, permissions, approval limits and module switches apply exactly as on the screens.
+- **Traceable drafts.** The reason of every AI-made draft starts with `Prepared by the AI assistant at the user's request: …`. When the user may draft in several branches, the branch must be named. When an invoice number is omitted, it continues the company's latest sequence.
+- **Access.** New permission `ai.use` and new module switch **AI assistant** (`ai_assistant`). The demo roles receive `ai.use`.
+- **Providers.** The Claude Messages API (default model `claude-sonnet-5-5`) or any OpenAI-compatible server, such as Ollama in the office. Configure it per company under **Modules & features → AI assistant provider** (company-wide `configuration.manage`, with a reason, audited), or server-wide with `SERK_AI_PROVIDER`, `SERK_AI_MODEL`, `SERK_AI_BASE_URL`, `SERK_AI_API_KEY` (or `ANTHROPIC_API_KEY`) and `SERK_AI_ALLOW_PRIVATE_HTTP`.
+- **Key protection.** A company API key is sealed with AES-GCM using the installation's encryption key, bound to the company, and never returned. A stored key is only used with the provider and address it was entered for; changing them requires entering the key again (`assistant_key_required`). Redirects from the AI service are refused. Plain-HTTP addresses are accepted only for this computer, or private addresses when `SERK_AI_ALLOW_PRIVATE_HTTP=true`.
+- **Limits.** 8 model calls and 6 tools per call, tool results capped at 24 KiB (larger results become a valid-JSON truncated wrapper), 140 s per chat, 12 chats per minute per session, and 30 messages of 8000 bytes. Drafts saved before a failure are still reported.
+- **API.** `GET /api/v1/assistant/status`, `POST /api/v1/assistant/chat`, `GET`/`POST /api/v1/assistant/settings`. See `docs/AI_ARCHITECTURE.md` and `docs/ai-governance.md`.
+
+## Office installers
+
+- **Windows and Linux installers** (`scripts/build-installers.sh`): `SerkFinance-0.4.0-rc1-Setup.exe` (NSIS), `serk-finance_0.4.0~rc1_amd64.deb` and `serk-finance-0.4.0-rc1-linux-amd64.tar.gz`, with `SHA256SUMS`. Each bundles PostgreSQL 17, which listens on 127.0.0.1 only.
+- **`serk-server`** (`cmd/serk-server`) runs the database and the application (`SERK_ENV=office`), with the commands `run`, `service`, `backup`, `restore`, `reset-password`, `stop-database` and `version`.
+- **First-run setup wizard.** It creates the company, fiscal year (Ethiopian by default), branches and first administrator. Access needs the server computer itself, or the one-time token in `setup-token.txt`. If setup is interrupted, submit again with the same workspace and administrator email to finish it. Setup can also create the `demo` practice workspace. Its generated password is shown once at the end of setup and is also stored in `serk.json` as `practice_password`.
+- **Online backups** to a `.zip`. A temporary replication slot keeps the write-ahead log while files are copied, and the backup checks that its starting log segment is in the archive.
+- **Restore** keeps the previous database as `pgdata.before-restore-<time>`, never takes server configuration (`postgresql.conf`, `pg_hba.conf` and similar) from the archive, and puts the previous database back if the swap fails. The server refuses to create a new, empty database when a before-restore folder exists without `pgdata`. `--with-settings` restores `serk.json` on a new computer.
+- **Windows:** service `SerkFinance` under `LocalService`. Data in `%ProgramData%\SerkFinance` is restricted to Administrators, SYSTEM and LocalService, and the install folder is locked too. A firewall rule for private and domain networks only is added when chosen. Start-menu shortcuts are provided for backup and password reset.
+- **Linux:** `/var/lib/serk-finance`, the `serk-finance` system user and a hardened systemd unit. `sudo serk-finance backup|restore|reset-password`.
+- **Verification:** the Linux `.deb` was installed and verified end to end. **The Windows installer has been built but not run on real Windows.** Under Wine, the bundled `postgres.exe` fails because of an unrelated Wine limitation. Treat Windows as unverified. Guide: `docs/OFFICE_INSTALL.md`.
+
+## Fixes from the first accountant test round (migration 056)
+
+- **Errors name the field.** Account mapping and item errors now say which field is wrong: `account_type_not_allowed`, `account_reserved` or `account_required`. The API returns the field key as `error.field`, and the message on screen starts with the field's label. Before, every case said "an account mapping is missing".
+- **Account pickers** offer only accounts of the right type that are not reserved for another purpose.
+- **Control accounts serve one purpose.** One account can no longer be both cash and a control account, or two control purposes. Remapping a control purpose releases the old account when it never carried an entry. An account is not released while a draft or submitted adjustment uses it. Blank mappings are dropped instead of being saved.
+- **Module journals** (from invoices, bills, adjustments and year close) show their source document and send the user to it, instead of offering a general-ledger reversal.
+- **Receivable write-off template.** A receivable write-off starts from impairment expense and trade receivables.
+- **People are shown by name** in control trails (display names of the company's members only).
+
+## Tests added
+
+- `internal/assistant/assistant_test.go`: tool loop on both providers, error classification, base-URL policy, refused redirects, timeouts, valid-JSON truncation.
+- `tests/assistant_test.go`: the assistant acts as the user and only drafts; company key sealing and `assistant_key_required`.
+- `tests/assistant-browser.mjs` with `tests/fake-claude.mjs` (a stand-in Claude API), and `tests/assistant-markdown.mjs`.
+- `tests/accountant-feedback.mjs` and `tests/controls-022.mjs` AF1–AF4 (now 28 cases).
+- `tests/office_setup_test.go`, `tests/office-setup.mjs` and `cmd/serk-server/backup_test.go`.
+
+## Known limitations
+
+- **Windows is unverified** (see above). Run the checks in `VALIDATION_0.4.0.md` on a Windows 10/11 PC before giving the installer to an office.
+- **Supplier bills drafted by the assistant need the supplier's invoice number**; only sales invoices continue the company's own sequence.
+- **Resuming an interrupted setup** keeps the company and administrator from the first attempt; the second form's password and company details are not applied.
+- **Opening the browser after a Windows install** relies on Explorer to drop administrator rights. If a browser opens as administrator, close it and use the Start-menu shortcut.
+- **An adjustment saved at the exact moment its control account is remapped** may still name the old account (a window of milliseconds, since remapping waits for adjustments being saved). The approver sees every line before approving.
+
 # 0.3.0-rc1 — accountant test release: module switches, Ethiopian fiscal year, Railway deployment
 
 This candidate prepares Serk Finance for hands-on testing by accountants. It adds role-aware module switches, the Ethiopian fiscal calendar, a ready-to-test Ethiopian demo workspace and a single-service Railway deployment. Everything in 0.2.2-rc1 still applies.

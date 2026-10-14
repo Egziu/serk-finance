@@ -1,27 +1,47 @@
-# AI CFO and intelligence governance — target design
+# AI assistant governance
 
-No AI model is connected to this release. There are no AI financial-write endpoints. The design treats AI as an evidence-bound assistant with lower authority than financial command services.
+This page states the rules the AI assistant (0.4.0-rc1) operates under and what an organisation must decide before turning it on. The technical design is in [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md).
 
-## Authorization and semantic layer
+## Principle: a preparer, never an approver
 
-Every AI query starts from a server-resolved actor, tenant, company, permitted branches/projects, purpose and as-of date. Retrieval, joins, summaries, caches and embeddings enforce this scope before data reaches a model. An LLM-provided SQL WHERE clause is not authorization. Use typed, allowlisted query tools over a semantic model of accounts, customers, suppliers, projects, invoices, payments, budgets, taxes, contracts, assets and employees. Payroll and bank data require additional purpose-specific entitlements.
+The assistant has lower authority than the person using it.
 
-Responses cite exact internal record IDs, versions, reporting dates and authorized drill-through links. An explanation of falling project profit must show the budget/revenue baseline, actual costs, remaining commitments, forecast-to-complete method and main drivers. A statement that lacks adequate evidence should identify the missing inputs rather than invent a cause.
+| Allowed | Not allowed |
+|---|---|
+| Read reports, ledgers, journals, documents, VAT and integrity status that the user may already see | Reading anything the user cannot see |
+| Explain figures and IFRS / Ethiopian practice | Submitting, approving, posting, paying, reversing or voiding |
+| Audit-style review of entries (`review_entries`) | Changing posted data or deleting history |
+| Prepare DRAFT manual journals, sales invoices and supplier bills | Changing tax rules, configuration, permissions or periods; closing or reopening periods |
 
-## Capability boundary
+These limits are enforced by the code, not by the prompt. The assistant only has the 17 tools listed in AI_ARCHITECTURE.md. Each tool runs as the signed-in user in its own transaction, under row-level security, branch scope, permissions and module switches. The draft tools call the same create commands as the screens. Every draft then needs a person to submit it and a different authorised person to approve and post it.
 
-Allowed: classify, summarize, flag, compare, explain, forecast and prepare a proposed transaction. Disallowed: direct ledger writes, changing posted data, deleting financial history, changing effective tax rules, closing/reopening periods, granting permissions, approving itself, or releasing money. A proposal crosses into the normal authenticated command workflow with version, idempotency, budget, tax and independent approval checks. Model output is untrusted input.
+## Accountability
 
-## OCR and prompt injection
+- A draft is created by, and recorded in the audit trail under, the user who asked for it.
+- Its reason begins with `Prepared by the AI assistant at the user's request: …` and the user's request, so reviewers can see where it came from.
+- The approver is responsible for checking the draft as with any other preparer's work. AI involvement is not a reason to approve faster.
+- Tax and payroll rates come from the company's configured, dual-approved policies. The assistant is told to remind users to confirm statutory rates with a qualified accountant.
 
-Treat supplier invoices, emails and uploaded documents as data, never instructions to the AI agent. OCR extraction returns field values, page/coordinate evidence and confidence. Validate TIN, invoice identity, quantities, totals, tax rule selection and PO/GRN match. Duplicate checks and a human approval precede posting. Vendor text such as "ignore approval" cannot modify tools or instructions. Record original content hash, extraction model/version, reviewed corrections and final source linkage.
+## Turning it on
 
-## Forecasting and anomaly alerts
+1. **Module switch.** The AI assistant is a module under Modules & features. An administrator with `configuration.manage` can switch it off for the company at any time, with a reason; the change is audited.
+2. **Permission.** Grant "Use the AI assistant" (`ai.use`) only to roles that should use it.
+3. **Provider.** Choose where data goes:
+   - **Claude (Anthropic) API.** Questions, conversation text and the figures the tools return are sent to Anthropic. Agree data-processing terms (retention, training use) with the provider before using it with real books.
+   - **OpenAI-compatible server in the office** (for example Ollama). Data stays on your network. Plain HTTP is accepted only on the same computer, or on private addresses when the operator sets `SERK_AI_ALLOW_PRIVATE_HTTP=true`.
+   - **Server-wide default** set by the operator through `SERK_AI_*` environment variables (see [RAILWAY.md](RAILWAY.md)). A company's own settings take precedence.
+4. **Key custody.** A company key is sealed with the installation's encryption key and bound to the company. It is never shown again after entry, and it is only used with the provider and address it was entered for. Moving to another provider or address requires the key to be entered again. Settings changes need a reason and are audited; the key itself is not written to the audit trail.
 
-Forecasts identify horizon, training cutoff, input source sequences, collection/payment assumptions, model revision, forecast range and calibrated uncertainty. Distinguish scenario ranges from statistically calibrated confidence intervals. Backtest against time-held-out data; avoid leakage from later payments or project revisions. Show actual outcomes and drift over time.
+## Data handling
 
-Alerts include severity, what occurred, why it is unusual, compared cohort/baseline, supporting records, uncertainty and recommended review. Rules cover duplicate bills/payments, supplier changes, split purchases, backdating, abnormal price/discount/refund patterns, cash behaviour and payroll indicators. An alert does not establish fraud. Track reviewer disposition, false positives, and appeal/correction history.
+- The server does not store conversations. The browser keeps them in session storage for the current user and company, and clears them at sign-out.
+- Server logs record request IDs, tool names and error codes, not prompts or financial figures. Provider error details are logged truncated.
+- Tool results are capped at 24 KiB per call. The model receives no more than the tools return.
+- The assistant does not follow redirects from the AI service.
 
-## Release evidence
+## Known gaps (future)
 
-Before deployment: cross-tenant and branch retrieval tests; adversarial document injection; tool permission tests; arithmetic/source reconciliation; denied critical actions; citation fidelity; stale-report disclosure; absent-data handling; PII minimization; model retention contracts; signed tool/audit records; and evaluation suites for every proposed capability. Financial correctness comes from deterministic query/calculation services, not text generation.
+- No per-company log of prompts and answers for later review. Organisations that need one should not enable the assistant until it exists, or should keep their own records.
+- No automated evaluation suite for answer quality (arithmetic, citations). The tests cover permission boundaries, draft-only behaviour, key handling and limits, not the correctness of model answers.
+- Answers do not yet cite record IDs for each figure. Users should check figures against the reports.
+- OCR of supplier documents, forecasting and anomaly alerts beyond `review_entries` are not implemented; see the future section of AI_ARCHITECTURE.md.

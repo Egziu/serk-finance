@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 	if e := os.MkdirAll(filepath.Dir(out), 0o700); e != nil {
 		return "", e
 	}
+	_ = os.Remove(out + ".partial") // left over from an interrupted backup
 	f, e := os.OpenFile(out+".partial", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if e != nil {
 		return "", e
@@ -51,7 +53,12 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 	if e != nil {
 		return "", e
 	}
-	defer c.Close(ctx)
+	defer c.Close(context.Background())
+	// A temporary replication slot keeps every write-ahead log segment from here on until this
+	// connection closes, so none can be recycled while a long backup is copied.
+	if _, e = c.Exec(ctx, `SELECT pg_create_physical_replication_slot('serk_backup_'||pg_backend_pid(), true, true)`); e != nil {
+		return "", fmt.Errorf("backup slot: %w", e)
+	}
 	if _, e = c.Exec(ctx, `SELECT pg_backup_start('serk-finance', true)`); e != nil {
 		return "", fmt.Errorf("backup start: %w", e)
 	}
@@ -65,6 +72,9 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 	// The first pass skips pg_wal, which is copied after the backup stops.
 	walk := func(root string, skipWAL bool) error {
 		return filepath.WalkDir(root, func(name string, d fs.DirEntry, err error) error {
+			if ce := ctx.Err(); ce != nil {
+				return ce
+			}
 			if err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
 					return nil // files come and go while the server runs
@@ -102,6 +112,7 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 	if _, e = c.Exec(ctx, `SELECT pg_switch_wal()`); e != nil {
 		return "", e
 	}
+	copied := map[string]bool{}
 	if e = filepath.WalkDir(filepath.Join(p.data, "pg_wal"), func(name string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
@@ -113,9 +124,14 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 			return nil
 		}
 		rel, _ := filepath.Rel(p.data, name)
+		copied[d.Name()] = true
 		return addFile(z, name, "pgdata/"+filepath.ToSlash(rel))
 	}); e != nil {
 		return "", e
+	}
+	// Recovery starts at the segment named in the backup label; it must be in the archive.
+	if m := startSegment.FindStringSubmatch(label); m == nil || !copied[m[1]] {
+		return "", errors.New("backup incomplete: the starting write-ahead log segment was not found; try again")
 	}
 	for name, body := range map[string]string{"pgdata/backup_label": label, "pgdata/tablespace_map": spcmap} {
 		if body == "" {
@@ -150,6 +166,8 @@ func backup(ctx context.Context, p *postgres, data, out string) (string, error) 
 	ok = true
 	return out, nil
 }
+
+var startSegment = regexp.MustCompile(`START WAL LOCATION: [0-9A-F/]+ \(file ([0-9A-F]{24})\)`)
 
 func addFile(z *zip.Writer, src, name string) error {
 	in, e := os.Open(src)
@@ -188,17 +206,25 @@ func restore(p *postgres, data, from string, withSettings bool) (string, error) 
 		return "", fmt.Errorf("cannot open backup: %w", e)
 	}
 	defer z.Close()
-	marker := false
+	marker, label := false, false
 	for _, f := range z.File {
-		if f.Name == "SERK-BACKUP.txt" {
+		switch f.Name {
+		case "SERK-BACKUP.txt":
 			marker = true
+		case "pgdata/backup_label":
+			label = true
 		}
 	}
 	if !marker {
 		return "", errors.New("this file is not a Serk Finance backup")
 	}
+	if !label {
+		return "", errors.New("this backup is incomplete (no backup_label)")
+	}
 	staging := p.data + ".restoring"
-	_ = os.RemoveAll(staging)
+	if e = os.RemoveAll(staging); e != nil {
+		return "", fmt.Errorf("cannot clear %s: %w", staging, e)
+	}
 	for _, f := range z.File {
 		if !strings.HasPrefix(f.Name, "pgdata/") && !(withSettings && f.Name == "serk.json") {
 			continue
@@ -206,6 +232,11 @@ func restore(p *postgres, data, from string, withSettings bool) (string, error) 
 		clean := path.Clean(f.Name)
 		if strings.Contains(clean, "..") || path.IsAbs(clean) {
 			return "", errors.New("backup contains an unsafe path")
+		}
+		// Server configuration is never taken from an archive: it is written fresh below, so a
+		// tampered backup cannot change how the database runs or who may connect.
+		if serverConfig[strings.TrimPrefix(clean, "pgdata/")] {
+			continue
 		}
 		target := filepath.Join(staging, filepath.FromSlash(strings.TrimPrefix(clean, "pgdata")))
 		if f.Name == "serk.json" {
@@ -226,6 +257,9 @@ func restore(p *postgres, data, from string, withSettings bool) (string, error) 
 			return "", e
 		}
 	}
+	if e = writeServerConfig(staging, p); e != nil {
+		return "", e
+	}
 	kept := ""
 	if _, e = os.Stat(p.data); e == nil {
 		kept = p.data + ".before-restore-" + time.Now().Format("20060102-150405")
@@ -234,14 +268,38 @@ func restore(p *postgres, data, from string, withSettings bool) (string, error) 
 		}
 	}
 	if e = os.Rename(staging, p.data); e != nil {
-		return "", e
+		if kept != "" {
+			if back := os.Rename(kept, p.data); back != nil {
+				return "", fmt.Errorf("restore failed (%v) and the previous database could not be put back; rename %s to %s by hand", e, kept, p.data)
+			}
+		}
+		return "", fmt.Errorf("restore failed; the previous database is unchanged: %w", e)
 	}
 	if withSettings {
 		if e = os.Rename(settingsPath(data)+".restored", settingsPath(data)); e != nil {
-			return "", e
+			return kept, fmt.Errorf("the database was restored but serk.json was not: %w", e)
 		}
 	}
 	return kept, nil
+}
+
+// tablespace_map is also never restored: Serk Finance uses no tablespaces, and the map would
+// let an archive point the database at other folders.
+var serverConfig = map[string]bool{"postgresql.conf": true, "postgresql.auto.conf": true, "pg_hba.conf": true, "pg_ident.conf": true, "tablespace_map": true}
+
+// writeServerConfig gives a restored data folder this installation's own configuration: the
+// files of the current database when there is one, otherwise Serk Finance's standard settings.
+func writeServerConfig(dir string, p *postgres) error {
+	standard := map[string]string{"postgresql.conf": p.config(), "postgresql.auto.conf": "# Do not edit this file manually.\n", "pg_hba.conf": hbaConfig, "pg_ident.conf": ""}
+	for name, body := range standard {
+		if current, e := os.ReadFile(filepath.Join(p.data, name)); e == nil {
+			body = string(current)
+		}
+		if e := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 func extract(f *zip.File, target string) error {
@@ -257,9 +315,16 @@ func extract(f *zip.File, target string) error {
 	if e != nil {
 		return e
 	}
-	if _, e = io.Copy(out, io.LimitReader(in, 8<<30)); e != nil {
-		out.Close()
-		return e
+	// The zip reader checks each file's size and checksum against its header as it reads.
+	n, e := io.Copy(out, in)
+	if e == nil && uint64(n) != f.UncompressedSize64 {
+		e = fmt.Errorf("%s: size mismatch", f.Name)
 	}
-	return out.Close()
+	if e == nil {
+		e = out.Sync()
+	}
+	if ce := out.Close(); e == nil {
+		e = ce
+	}
+	return e
 }

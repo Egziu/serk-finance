@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"unicode/utf8"
 )
 
 // Executor runs one tool as the signed-in user. A *ToolError is reported back to the model
@@ -63,6 +64,9 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 		known[t.Name] = true
 	}
 	for call := 0; call < maxModelCalls; call++ {
+		if e := ctx.Err(); e != nil {
+			return res, e
+		}
 		last := call == maxModelCalls-1
 		if last && len(msgs) > 0 && msgs[len(msgs)-1].Role == "user" {
 			// Tools stay declared (the API requires it once tool blocks exist); the model is told to stop.
@@ -74,15 +78,17 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 			return res, e
 		}
 		var text []string
-		var uses []Block
+		var uses, kept []Block
 		for _, b := range resp.Content {
 			switch b.Type {
 			case "text":
 				if strings.TrimSpace(b.Text) != "" {
 					text = append(text, b.Text)
+					kept = append(kept, b)
 				}
 			case "tool_use":
 				uses = append(uses, b)
+				kept = append(kept, b)
 			}
 		}
 		if len(uses) == 0 || last {
@@ -90,9 +96,12 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 			if res.Reply == "" {
 				res.Reply = "I could not produce an answer. Please rephrase the question."
 			}
+			if resp.StopReason == "max_tokens" {
+				res.Reply += "\n\n_(The answer was cut short. Ask for the rest, or narrow the question.)_"
+			}
 			return res, nil
 		}
-		msgs = append(msgs, Message{Role: "assistant", Content: resp.Content})
+		msgs = append(msgs, Message{Role: "assistant", Content: kept})
 		results := make([]Block, 0, len(uses))
 		for i, u := range uses {
 			out := Block{Type: "tool_result", ToolUseID: u.ID}
@@ -106,7 +115,7 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 				step := Step{Tool: u.Name, OK: err == nil}
 				if err != nil {
 					var te *ToolError
-					if !errors.As(err, &te) {
+					if !errors.As(err, &te) || te == nil {
 						if ctx.Err() != nil {
 							return res, ctx.Err()
 						}
@@ -120,10 +129,7 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 					if e != nil {
 						return res, e
 					}
-					if len(b) > maxToolResult {
-						b = append(b[:maxToolResult], []byte(`… [truncated: narrow the request, for example a shorter date range]`)...)
-					}
-					out.Content = string(b)
+					out.Content = limitResult(b)
 					if draft != nil {
 						res.Drafts = append(res.Drafts, *draft)
 						step.Note = draft.Kind + " " + draft.Number
@@ -137,4 +143,22 @@ func Run(ctx context.Context, p Provider, system string, tools []Tool, exec Exec
 	}
 	res.Reply = "I stopped after several steps without a final answer. Please narrow the question."
 	return res, nil
+}
+
+// limitResult keeps a tool result within maxToolResult while staying valid JSON: an oversized
+// result is replaced by an object holding its beginning (cut on a character boundary) and a note.
+func limitResult(b []byte) string {
+	if len(b) <= maxToolResult {
+		return string(b)
+	}
+	cut := maxToolResult - 512
+	for cut > 0 && !utf8.RuneStart(b[cut]) {
+		cut--
+	}
+	wrapped, _ := json.Marshal(map[string]any{
+		"truncated": true,
+		"note":      "The result was too large and is cut short; totals near the end may be missing. Narrow the request (a shorter date range, one account or one branch) for complete figures.",
+		"partial":   string(b[:cut]),
+	})
+	return string(wrapped)
 }

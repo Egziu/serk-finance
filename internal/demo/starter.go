@@ -120,36 +120,76 @@ func CreateCompany(ctx context.Context, db *pgx.Conn, n NewCompany) (provisionin
 	if e != nil {
 		return res, fmt.Errorf("provision: %w", e)
 	}
-	s := &session{db: db, company: res.Companies["MAIN"], tokens: map[string]string{}, csrf: map[string]string{}}
-	if e = s.login(ctx, n.AdminEmail, res.Users[n.AdminEmail]); e != nil {
-		return res, e
+	return res, ConfigureCompany(ctx, db, n)
+}
+
+// ConfigureCompany applies the starting configuration (account mappings, rounding, foreign
+// exchange policy and VAT) to a provisioned company. Every step is safe to repeat, so a setup
+// interrupted after provisioning can be completed by running it again.
+func ConfigureCompany(ctx context.Context, db *pgx.Conn, n NewCompany) error {
+	var company, admin string
+	if e := db.QueryRow(ctx, `SELECT c.id::text,u.id::text FROM security.tenants t JOIN organization.companies c ON c.tenant_id=t.id AND c.code='MAIN'
+		JOIN security.users u ON u.tenant_id=t.id AND lower(u.email)=lower($2) WHERE t.slug=$1`, n.Workspace, n.AdminEmail).Scan(&company, &admin); e != nil {
+		return fmt.Errorf("find company: %w", e)
+	}
+	rows, e := db.Query(ctx, `SELECT code,id::text FROM ledger.accounts WHERE company_id=$1::uuid`, company)
+	if e != nil {
+		return e
+	}
+	accounts := map[string]string{}
+	for rows.Next() {
+		var code, id string
+		if e = rows.Scan(&code, &id); e != nil {
+			rows.Close()
+			return e
+		}
+		accounts[code] = id
+	}
+	rows.Close()
+	if e = rows.Err(); e != nil {
+		return e
+	}
+	s := &session{db: db, company: company, tokens: map[string]string{}, csrf: map[string]string{}}
+	if e = s.login(ctx, n.AdminEmail, admin); e != nil {
+		return e
 	}
 	defer s.logout(ctx)
-	acc := func(code string) string { return res.Accounts["MAIN:"+code] }
+	acc := func(code string) string { return accounts[code] }
 	if _, e = db.Exec(ctx, `SELECT ledger.configure_fx_rounding($1::uuid,$2::uuid,2,'Foreign-currency rounding to exchange differences')`, s.company, acc("7000")); e != nil {
-		return res, fmt.Errorf("fx rounding: %w", e)
+		return fmt.Errorf("fx rounding: %w", e)
 	}
 	if _, e = s.call(ctx, n.AdminEmail, `SELECT finance.configure($1::jsonb)`, jsonOf(map[string]any{
 		"cash_accounts": []string{acc("1000"), acc("1010"), acc("1020")}, "receivable": acc("1100"), "payable": acc("2000"),
 		"output_tax": acc("2200"), "input_tax": acc("1300"), "opening_equity": acc("3900"), "retained_earnings": acc("3100"),
 		"payroll_expense": acc("6000"), "payroll_payable": acc("2100"), "payroll_tax": acc("2110"),
 		"pension_expense": acc("6010"), "pension_payable": acc("2120")})); e != nil {
-		return res, fmt.Errorf("account mappings: %w", e)
+		return fmt.Errorf("account mappings: %w", e)
 	}
 	if _, e = s.call(ctx, n.AdminEmail, `SELECT ledger.set_fx_policy(200,7)`); e != nil {
-		return res, fmt.Errorf("fx policy: %w", e)
+		return fmt.Errorf("fx policy: %w", e)
 	}
 	if n.VATRegistered {
-		mor, e := s.call(ctx, n.AdminEmail, `SELECT finance.create_master('AGENCY',$1::jsonb)`, jsonOf(map[string]any{"name": "Ministry of Revenues", "code": "MOR"}))
-		if e != nil {
-			return res, fmt.Errorf("tax agency: %w", e)
+		var agency string
+		_ = db.QueryRow(ctx, `SELECT id::text FROM taxes.tax_agencies WHERE company_id=$1::uuid AND code='MOR'`, company).Scan(&agency)
+		if agency == "" {
+			mor, e := s.call(ctx, n.AdminEmail, `SELECT finance.create_master('AGENCY',$1::jsonb)`, jsonOf(map[string]any{"name": "Ministry of Revenues", "code": "MOR"}))
+			if e != nil {
+				return fmt.Errorf("tax agency: %w", e)
+			}
+			agency, _ = mor["id"].(string)
 		}
-		if _, e = s.call(ctx, n.AdminEmail, `SELECT finance.create_master('RATE',$1::jsonb)`, jsonOf(map[string]any{"agency_id": mor["id"],
-			"name": "VAT standard rate 15% (confirm)", "code": "VAT15", "rate_percent": "15", "effective_from": n.YearStart})); e != nil {
-			return res, fmt.Errorf("VAT rate: %w", e)
+		var rates int
+		if e = db.QueryRow(ctx, `SELECT count(*) FROM taxes.tax_rates WHERE company_id=$1::uuid AND code='VAT15'`, company).Scan(&rates); e != nil {
+			return e
+		}
+		if rates == 0 {
+			if _, e = s.call(ctx, n.AdminEmail, `SELECT finance.create_master('RATE',$1::jsonb)`, jsonOf(map[string]any{"agency_id": agency,
+				"name": "VAT standard rate 15% (confirm)", "code": "VAT15", "rate_percent": "15", "effective_from": n.YearStart})); e != nil {
+				return fmt.Errorf("VAT rate: %w", e)
+			}
 		}
 	}
-	return res, nil
+	return nil
 }
 
 func permissions(ctx context.Context, db *pgx.Conn) ([]string, error) {

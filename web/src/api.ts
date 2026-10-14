@@ -1,5 +1,19 @@
 // Plain-language text for the static error codes the API returns.
 const messages: Record<string, string> = {
+  assistant_not_configured: "The assistant is not set up yet. An administrator can add an AI provider key under Modules & features.",
+  assistant_misconfigured: "The assistant's settings are not valid. An administrator should check them under Modules & features.",
+  assistant_timeout: "The assistant took too long to answer. Try a narrower question.",
+  assistant_unavailable: "The AI service is not reachable right now. Try again shortly.",
+  assistant_key_rejected: "The AI service rejected the API key. An administrator should enter a valid key.",
+  assistant_rate_limited: "The AI service is busy or the account's limit is reached. Try again in a minute.",
+  assistant_request_rejected: "The AI service refused the request. Check the model name in the assistant settings.",
+  assistant_response_too_large: "The AI service sent an answer that was too large. Try a narrower question.",
+  assistant_redirect_refused: "The AI service address redirects elsewhere. Enter its final address in the settings.",
+  assistant_key_required: "Enter the API key again: a saved key is only used with the provider and address it was entered for.",
+  assistant_key_unreadable: "The saved API key cannot be read on this server. Enter it again.",
+  assistant_key_storage_unavailable: "This server cannot store API keys securely (no encryption key is set).",
+  invalid_base_url: "Use an https:// address, or http:// only for a model running on this computer.",
+  invalid_api_key: "The API key contains spaces or is too long.",
   invalid_credentials: "The workspace, email, password or code is not correct.",
   unauthenticated: "Your session has ended. Sign in again.",
   rate_limited: "Too many attempts. Wait a minute, then try again.",
@@ -153,6 +167,7 @@ export class APIError extends Error {
     public status: number,
     public code: string,
     public field?: string,
+    public body?: Record<string, unknown>,
   ) {
     const text = messages[code] ?? code.replaceAll("_", " ");
     super(field && fieldLabels[field] ? `${fieldLabels[field]}: ${text}` : text);
@@ -182,7 +197,7 @@ export async function api<T>(
   } catch {
     throw new APIError(r.status, r.status >= 500 ? "retry_later" : "request_failed");
   }
-  if (!r.ok) throw new APIError(r.status, data.error?.code ?? "request_failed", data.error?.field);
+  if (!r.ok) throw new APIError(r.status, data.error?.code ?? "request_failed", data.error?.field, data);
   return data;
 }
 export function minor(value: string, places: number): string {

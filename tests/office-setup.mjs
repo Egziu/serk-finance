@@ -36,6 +36,9 @@ await step('setup creates the company and the practice workspace',async()=>{
  await page.screenshot({path:`${out}/setup-form.png`,fullPage:true});
  await page.getByRole('button',{name:'Create my company'}).click();
  await expect(page.getByRole('heading',{name:'Your company is ready'})).toBeVisible({timeout:120000});
+ const practice=await page.locator('#practice-password').textContent();
+ if(!/^[A-Za-z0-9]{5}(-[A-Za-z0-9]{5}){3}$/.test(practice||'')||practice===password)throw new Error('practice password '+practice);
+ globalThis.practicePassword=practice;
  await page.screenshot({path:`${out}/setup-done.png`,fullPage:true});
 });
 await step('the administrator signs in and finds the Ethiopian year and chart',async()=>{
@@ -49,6 +52,12 @@ await step('the administrator signs in and finds the Ethiopian year and chart',a
  await sidebar.getByRole('button',{name:'Chart of accounts',exact:true}).click();
  await expect(page.getByText('Trade receivables').first()).toBeVisible({timeout:15000});
  await page.screenshot({path:`${out}/signed-in.png`,fullPage:true});
+});
+await step('the practice workspace uses its own password, not the administrator\'s',async()=>{
+ const ctx=page.context();
+ const tryLogin=async pw=>(await ctx.request.post(base+'/api/v1/auth/login',{headers:{Origin:base,'Content-Type':'application/json'},data:{tenant:'demo',email:'admin@serk.demo',password:pw}})).status();
+ if(await tryLogin(password)===200)throw new Error('admin password opens the practice workspace');
+ const ok=await tryLogin(globalThis.practicePassword);if(ok!==200)throw new Error('practice login '+ok);
 });
 await step('setup cannot run a second time',async()=>{
  const r=await page.request.post(base+'/setup/api',{headers:{Origin:base,'Content-Type':'application/json'},data:{workspace:'evil',company_name:'X',calendar:'GREGORIAN',year_start:'2026-01-01',admin_name:'X',admin_email:'x@x.example',admin_password:'abcdefghijklmnop'},maxRedirects:0});

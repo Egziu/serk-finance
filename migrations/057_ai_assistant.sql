@@ -56,7 +56,11 @@ BEGIN
  RETURN (SELECT jsonb_build_object('company',c.name,'currency',c.functional_currency,'places',cur.minor_units,
   'user',(SELECT display_name FROM security.users WHERE id=security.actor()),
   'held',to_jsonb(security.held_permissions()),
-  'branch_id',(SELECT b.id FROM organization.branches b WHERE b.company_id=c.id AND b.active AND security.can('journal.create',b.id) ORDER BY b.code LIMIT 1))
+  'branch_id',(SELECT b.id FROM organization.branches b WHERE b.company_id=c.id AND b.active AND security.can('journal.create',b.id) ORDER BY b.code LIMIT 1),
+  'branches',coalesce((SELECT jsonb_agg(x ORDER BY x->>'code') FROM (SELECT jsonb_build_object('id',b.id,'code',b.code,'name',b.name,
+    'journal',security.can('journal.create',b.id),'sales',security.can('sales.manage',b.id),'purchases',security.can('purchases.manage',b.id)) x
+   FROM organization.branches b WHERE b.company_id=c.id AND b.active) y
+   WHERE (x->>'journal')::boolean OR (x->>'sales')::boolean OR (x->>'purchases')::boolean),'[]'::jsonb))
   FROM organization.companies c JOIN organization.currencies cur ON cur.code=c.functional_currency WHERE c.id=security.company());
 END $$;
 
@@ -75,8 +79,19 @@ BEGIN
  PERFORM security.require('configuration.manage');
  IF NOT security.company_wide('configuration.manage') THEN RAISE EXCEPTION 'permission_denied' USING ERRCODE='42501'; END IF;
  IF length(btrim(coalesce(p_reason,''))) NOT BETWEEN 3 AND 1000 THEN RAISE EXCEPTION 'invalid_reason' USING ERRCODE='22023'; END IF;
- IF p_provider NOT IN('anthropic','openai') OR length(coalesce(p_model,'')) NOT BETWEEN 1 AND 100 OR p_model !~ '^[A-Za-z0-9._:/-]+$'
+ IF p_provider IS NULL OR p_provider NOT IN('anthropic','openai') OR length(coalesce(p_model,'')) NOT BETWEEN 1 AND 100 OR p_model !~ '^[A-Za-z0-9._:/-]+$'
+  OR (p_clear_key AND p_ciphertext IS NOT NULL)
  THEN RAISE EXCEPTION 'invalid_request' USING ERRCODE='22023'; END IF;
+ IF nullif(p_base_url,'') IS NOT NULL AND (length(p_base_url)>300 OR p_base_url !~ '^https?://[A-Za-z0-9.:\[\]-]+(/[A-Za-z0-9._~/-]*)?$')
+ THEN RAISE EXCEPTION 'invalid_base_url' USING ERRCODE='22023'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('serk-ai:'||security.company()::text,0));
+ -- A stored key is only ever sent to the address it was entered for: moving the assistant to
+ -- another provider or server needs the key entered again (or removed).
+ IF p_ciphertext IS NULL AND NOT p_clear_key
+  AND EXISTS(SELECT FROM organization.ai_secrets WHERE company_id=security.company())
+  AND EXISTS(SELECT FROM organization.ai_settings WHERE company_id=security.company()
+   AND (provider IS DISTINCT FROM p_provider OR base_url IS DISTINCT FROM nullif(p_base_url,'')))
+ THEN RAISE EXCEPTION 'assistant_key_required' USING ERRCODE='22023'; END IF;
  PERFORM set_config('serk.request_context',(coalesce(nullif(current_setting('serk.request_context',true),'')::jsonb,'{}'::jsonb)||jsonb_build_object('reason',p_reason))::text,true);
  IF p_clear_key THEN DELETE FROM organization.ai_secrets WHERE company_id=security.company();
  ELSIF p_ciphertext IS NOT NULL THEN
@@ -90,6 +105,29 @@ BEGIN
   reason=EXCLUDED.reason,updated_by=EXCLUDED.updated_by,updated_at=clock_timestamp(),version=ai_settings.version+1;
  RETURN organization.get_ai_settings();
 END $$;
+
+-- The next free number in a company's invoice or bill sequence (INV-000041 -> INV-000042),
+-- checked against every document of that kind in the company, whatever branch it belongs to.
+-- It reveals only that a number is taken, to a user who may create that kind of document.
+CREATE FUNCTION finance.next_document_number(p_kind text) RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,finance,security,pg_temp AS $$
+DECLARE last text; prefix text; digits int; n numeric; candidate text; i int;
+BEGIN
+ IF p_kind NOT IN('INVOICE','BILL') THEN RAISE EXCEPTION 'invalid_request' USING ERRCODE='22023'; END IF;
+ PERFORM security.require(finance.permission(p_kind)||'.manage');
+ SELECT document_no INTO last FROM finance.documents WHERE company_id=security.company() AND kind=p_kind AND document_no ~ '[0-9]{1,12}$'
+  ORDER BY created_at DESC,id LIMIT 1;
+ IF last IS NULL THEN prefix:=CASE p_kind WHEN 'INVOICE' THEN 'INV-' ELSE 'BILL-' END; digits:=6; n:=0;
+ ELSE prefix:=substring(last FROM '^(.*?)[0-9]+$'); digits:=length(substring(last FROM '([0-9]+)$')); n:=substring(last FROM '([0-9]+)$')::numeric;
+ END IF;
+ FOR i IN 1..1000 LOOP
+  candidate:=prefix||lpad((n+i)::text,digits,'0');
+  IF NOT EXISTS(SELECT FROM finance.documents WHERE company_id=security.company() AND kind=p_kind AND document_no=candidate) THEN RETURN candidate; END IF;
+ END LOOP;
+ RAISE EXCEPTION 'document_number_required' USING ERRCODE='22023';
+END $$;
+REVOKE ALL ON FUNCTION finance.next_document_number(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION finance.next_document_number(text) TO serk_api;
 
 REVOKE ALL ON FUNCTION organization.ai_config(),organization.assistant_context(),organization.get_ai_settings(),
  organization.set_ai_settings(text,text,text,text,boolean,text) FROM PUBLIC;

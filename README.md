@@ -1,12 +1,20 @@
-# SERK Finance ERP — 0.3.0-rc1
+# SERK Finance ERP — 0.4.0-rc1
 
-IFRS-oriented accounting and ERP for businesses in Ethiopia and Africa: double-entry ledger with maker-checker approval, sales, purchases, inventory, payroll, VAT, period and year-end controls, and a hash-chained audit trail. Start with `RELEASE_NOTES.md`, `VALIDATION_0.3.0.md` and `docs/ROADMAP.md`. Accountants testing the hosted demo should read `docs/ACCOUNTANT_TEST_GUIDE.md`; operators deploying to Railway should read `docs/RAILWAY.md`.
+IFRS-oriented accounting and ERP for businesses in Ethiopia and Africa: double-entry ledger with maker-checker approval, sales, purchases, inventory, payroll, VAT, period and year-end controls, a hash-chained audit trail, and an optional AI assistant that prepares drafts only. Start with `RELEASE_NOTES.md` and `docs/ROADMAP.md`; the latest published validation record is `VALIDATION_0.3.0.md` (0.3.0-rc1). Accountants testing the hosted demo should read `docs/ACCOUNTANT_TEST_GUIDE.md`; operators deploying to Railway should read `docs/RAILWAY.md`; offices installing on their own computer should read `docs/OFFICE_INSTALL.md`.
 
 This is a release candidate verified on native PostgreSQL 17 and a real browser. It is **not** approved for live financial use until the remaining infrastructure gates (image build/scan, restore/PITR, capacity) and independent accountant/security acceptance are complete.
 
 ## Deploy for testing (Railway)
 
 One service built from this repository's `Dockerfile` (target `platform`) plus a Railway PostgreSQL service. On start it migrates, creates the runtime logins, seeds the Ethiopian demo workspace when `SERK_DEMO_SEED=ethiopia`, and serves the app. Variables and steps: `docs/RAILWAY.md`.
+
+## Install on an office computer (Windows or Linux)
+
+Installers bundle the application and its own PostgreSQL 17 database (listening on 127.0.0.1 only), run it as a background service and open a first-run setup wizard at `http://localhost:8080`. Other office computers use a browser. Backups, restore and password reset are built in. Build them with `scripts/build-installers.sh` (output in `dist/` with `SHA256SUMS`). Guide: `docs/OFFICE_INSTALL.md`. The Linux `.deb` has been verified end to end; the Windows installer has been built but **not yet run on real Windows**.
+
+## AI assistant (optional)
+
+Users with the `ai.use` permission, in companies with the **AI assistant** module on, can ask questions about the books and ask for draft journals, sales invoices and supplier bills. The assistant acts strictly as the signed-in user and never submits, approves or posts. It uses the Claude API or an OpenAI-compatible model server (for example Ollama in the office), configured per company under Modules & features or server-wide with `SERK_AI_*` variables. See `docs/AI_ARCHITECTURE.md` and `docs/ai-governance.md`.
 
 ## Run locally
 
@@ -51,7 +59,7 @@ The release gate includes the repaired full-schema SQL suite and SQL upgrade-pre
 
 ## Upgrading an existing database
 
-Read `serk-finance/UPGRADE_FROM_ORIGINAL.md` first. Preserve a verified backup and stop the application during migration. Migrations 001–047 are byte-identical to 0.2.1-rc1 and 048–052 are forward-only; the original numbered migrations 001–036 are unchanged; a narrowly scoped operator preparation step enables the legacy 033 migration on populated databases, and later migrations remove that temporary access policy.
+Read `serk-finance/UPGRADE_FROM_ORIGINAL.md` first. Preserve a verified backup and stop the application during migration. Migrations 001–047 are byte-identical to 0.2.1-rc1 and 048–057 are forward-only; the original numbered migrations 001–036 are unchanged; a narrowly scoped operator preparation step enables the legacy 033 migration on populated databases, and later migrations remove that temporary access policy.
 
 Invalid historical account references, zero/invalid salaries, or quantity-only inventory balances cause migration to fail rather than inventing corrections. Posted records whose old contents were never captured by the audit trail also require accounting reconciliation. This repair does not fabricate historical audit evidence or rewrite existing posted amounts to make an integrity indicator green.
 

@@ -1,6 +1,44 @@
 # Testing and evidence
 
-## Current: 0.3.0-rc1
+## Current: 0.4.0-rc1
+
+The 0.4.0-rc1 validation run is in progress; until its record is published, this list is what must pass, not a result. 0.4.0 adds:
+
+| Test | Kind | Covers |
+|---|---|---|
+| `internal/assistant/assistant_test.go` | Go unit | Tool loop on the Claude and OpenAI-compatible providers; tool errors, drafts and the call limit; provider error classification; base-URL policy; refused redirects; expired context reported as a timeout; oversized results stay valid JSON |
+| `tests/assistant_test.go` | Go, database | `TestAssistantActsAsTheUserAndOnlyDrafts` (refused without `ai.use` or with the module off; branch must be named when several are possible; reads respect branch RLS; only drafts are created; `review_entries` flags manual revenue entries; invalid conversations and amounts refused); `TestAssistantCompanySettingsKeepTheKeySecret` (sealed key never returned; `assistant_key_required` when the provider or address changes) |
+| `tests/office_setup_test.go` | Go, database | `TestOfficeSetupConfigurationIsRepeatable`: after an interruption, the company configuration step can run again without duplicating tax agencies, rates or mappings |
+| `cmd/serk-server/backup_test.go` | Go unit | Restore keeps the installation's server configuration; incomplete archives are refused; the start segment is read from the backup label |
+| `tests/controls-022.mjs` AF1–AF4 | SQL (PGlite or native) | Item account of the wrong kind refused with the field named; mapping errors name the field and an unused remapped control account is released (not while a draft adjustment uses it); a module journal names its source document and offers no GL reversal. AF4: the next invoice number continues the company sequence and skips used numbers. The suite now has 28 cases. |
+| `tests/accountant-feedback.mjs` | Browser | Item form offers only accounts of the right kind; mappings save unchanged and wrong choices name the field; receivable write-off template; invoice journal links to the invoice instead of offering reversal |
+| `tests/assistant-browser.mjs` | Browser | The assistant panel end to end against `tests/fake-claude.mjs` |
+| `tests/fake-claude.mjs` | Helper | Stand-in Claude Messages API ("rent" drafts a rent journal, "VAT" runs the VAT report, anything else reads the overview) |
+| `tests/assistant-markdown.mjs` | Node unit | The panel's Markdown renderer and conversation history |
+| `tests/office-setup.mjs` | Browser | Office first run: the setup wizard creates the company and administrator, who then signs in |
+
+Commands:
+
+```bash
+go test -race -count=1 ./...                                  # includes the new Go tests (database tests need the TEST_* URLs below)
+SERK_SQL_BACKEND=native node tests/controls-022.mjs           # 28 cases including AF1–AF4
+node tests/assistant-markdown.mjs
+
+# Assistant in a browser, without a real AI key:
+node tests/fake-claude.mjs 8787 &
+#   start the platform with SERK_AI_BASE_URL=http://127.0.0.1:8787 SERK_AI_API_KEY=fake-key and the demo seed
+SERK_BASE_URL=http://localhost:8080 SERK_DEMO_PASSWORD=… node tests/assistant-browser.mjs
+SERK_BASE_URL=http://localhost:8080 SERK_DEMO_PASSWORD=… node tests/accountant-feedback.mjs
+
+# Office first run, against a fresh `serk-server run` (empty data folder):
+SERK_BASE_URL=http://localhost:8080 node tests/office-setup.mjs
+```
+
+Browser tests accept `SERK_BROWSER_EXECUTABLE` and write screenshots under `test-results/<test name>/` (or `SERK_RESULTS_DIR`).
+
+Installers: the Linux `.deb` was installed and verified end to end on a Linux host. The Windows installer was built but has not been run on real Windows; under Wine the bundled `postgres.exe` fails for an unrelated Wine limitation, so Windows runtime behaviour is untested.
+
+## 0.3.0-rc1
 
 0.3.0 adds `tests/profile_password_test.go`, the F1 and E1 cases in `tests/controls-022.mjs` and `internal/provisioning/periods_test.go`. Against a running demo deployment, local or Railway:
 

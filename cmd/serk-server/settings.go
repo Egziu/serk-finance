@@ -26,6 +26,25 @@ type Settings struct {
 	ExtraOrigins     []string `json:"extra_origins,omitempty"`
 	Practice         bool     `json:"practice_workspace,omitempty"`
 	PracticePassword string   `json:"practice_password,omitempty"`
+	PendingSetup     string   `json:"pending_setup_workspace,omitempty"` // set while first-run setup is incomplete
+}
+
+// practicePassword is a readable random password for the practice workspace's sample users,
+// separate from the administrator's own password.
+func practicePassword() string {
+	const letters = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	b := make([]byte, 20)
+	if _, e := rand.Read(b); e != nil {
+		panic(e)
+	}
+	out := make([]byte, 0, 23)
+	for i, c := range b {
+		if i > 0 && i%5 == 0 {
+			out = append(out, '-')
+		}
+		out = append(out, letters[int(c)%len(letters)])
+	}
+	return string(out)
 }
 
 func secret(n int) string {

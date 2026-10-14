@@ -3,11 +3,13 @@ package assistant
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fakeAnthropic emulates the Messages API: the first call asks for a tool, the second answers
@@ -178,5 +180,49 @@ func TestBaseURLPolicy(t *testing.T) {
 	}
 	if _, e := New(Config{Provider: "anthropic"}); e != ErrNotConfigured {
 		t.Errorf("missing key: %v", e)
+	}
+}
+
+func TestRedirectsAreNotFollowed(t *testing.T) {
+	var leaked bool
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { leaked = r.Header.Get("x-api-key") != "" }))
+	defer target.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/v1/messages", http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+	p, _ := New(Config{Provider: "anthropic", Model: "m", BaseURL: srv.URL, APIKey: "secret"})
+	_, e := p.Complete(context.Background(), Request{MaxTokens: 10})
+	pe, ok := e.(*ProviderError)
+	if leaked || !ok || pe.Code != "assistant_redirect_refused" {
+		t.Fatalf("leaked=%v err=%v", leaked, e)
+	}
+}
+
+func TestExpiredContextIsReportedAsTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { time.Sleep(300 * time.Millisecond) }))
+	defer srv.Close()
+	p, _ := New(Config{Provider: "anthropic", Model: "m", BaseURL: srv.URL, APIKey: "k"})
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, e := p.Complete(ctx, Request{MaxTokens: 10})
+	if !errors.Is(e, context.DeadlineExceeded) {
+		t.Fatalf("%v", e)
+	}
+}
+
+func TestLargeResultsStayValidJSONAndTypedNilToolErrorIsSafe(t *testing.T) {
+	big := strings.Repeat("ብር", maxToolResult) // multi-byte characters
+	out := limitResult([]byte(`"` + big + `"`))
+	if len(out) > maxToolResult+1024 || !json.Valid([]byte(out)) || !strings.Contains(out, `"truncated":true`) {
+		t.Fatalf("len=%d valid=%v", len(out), json.Valid([]byte(out)))
+	}
+	p := &scripted{uses: []Block{{Type: "tool_use", ID: "a", Name: "cash", Input: json.RawMessage(`{}`)}}}
+	_, e := Run(context.Background(), p, "s", cashTool, execFunc(func(context.Context, string, json.RawMessage) (any, *Draft, error) {
+		var te *ToolError
+		return nil, nil, te
+	}), []Message{{Role: "user", Content: []Block{{Type: "text", Text: "go"}}}})
+	if e != nil {
+		t.Fatal(e)
 	}
 }

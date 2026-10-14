@@ -281,6 +281,15 @@ try{
   await cfg({...m.mappings,payable:spare});assert.deepEqual(await ctl(spare),['payable']);
   assert.deepEqual(await ctl(m.a['2001']),['payable'],'an account with entries stays controlled');
   await cfg(m.mappings);assert.equal(await ctl(spare),null,'an unused previous mapping is released');
+  // A draft adjustment that uses the control account keeps it controlled.
+  await cfg({...m.mappings,payable:spare.toUpperCase(),opening_equity:''});
+  const stored=(await m.call('maker','SELECT finance.get_settings() AS value')).accounts;
+  assert.equal(stored.payable,spare,'mappings are stored in canonical form');assert.ok(!('opening_equity' in stored),'a blank mapping is not stored');
+  const x=await m.adjust('maker','create',{purpose:'PAYABLE_ADJUSTMENT',number:'AF2-HOLD',branch_id:f.branch,accounting_date:'2026-09-22',description:'Holds the payable account',reason:'Draft in review',
+   lines:[{account_id:spare,debit_minor:'1',credit_minor:'0'},{account_id:f.accounts['4000'],debit_minor:'0',credit_minor:'1'}]});
+  await cfg(m.mappings);assert.deepEqual(await ctl(spare),['payable'],'a draft adjustment keeps its control account');
+  await m.adjStep(x,'void','maker').catch(()=>{});
+  await field(()=>cfg({...m.mappings,receivable:m.a['1400']}),'account_reserved','receivable');
   const settings=await m.call('maker','SELECT finance.get_settings() AS value');
   assert.ok(settings.reserved_accounts.some(x=>x.account_id===m.a['1400']&&x.purpose==='inventory'));
  });
@@ -292,6 +301,15 @@ try{
   const manual=await f.command('maker','c022:af3-manual','create',f.payload('1000','2026-09-24'));
   const mj=await m.call('maker','SELECT ledger.get_journal($1) AS value',[manual.id]);
   assert.equal(mj.source_document,null);assert.equal(mj.permissions.void,true);
+ });
+
+ await check('AF4 the next invoice number continues the company sequence and skips used numbers',async()=>{
+  await m.invoice('SI-000041','1','100','2026-11-30');
+  assert.equal(await m.call('maker',"SELECT finance.next_document_number('INVOICE') AS value"),'SI-000042');
+  await m.invoice('SI-000043','1','100','2026-11-30');await m.invoice('SI-000042x','1','100','2026-11-30').catch(()=>{});
+  await m.invoice('SI-000044','1','100','2026-11-30');
+  assert.equal(await m.call('maker',"SELECT finance.next_document_number('INVOICE') AS value"),'SI-000045');
+  await reject(()=>m.call('maker',"SELECT finance.next_document_number('PAYROLL') AS value"),'22023','invalid_request');
  });
 
  // ---------------------------------------------------------------- year end (separate tenant)

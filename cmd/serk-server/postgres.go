@@ -66,6 +66,11 @@ func (p *postgres) ensure() error {
 	if p.initialised() {
 		return nil
 	}
+	// A restore that stopped part-way leaves the previous database beside the data folder.
+	// Never create a new, empty database over that situation.
+	if kept, _ := filepath.Glob(p.data + ".before-restore-*"); len(kept) > 0 {
+		return fmt.Errorf("the database folder is missing but %s exists; rename it back to %s (or restore a backup) before starting", kept[len(kept)-1], p.data)
+	}
 	if _, e := os.Stat(p.tool("initdb")); e != nil {
 		return fmt.Errorf("bundled PostgreSQL not found in %s", p.bin)
 	}
@@ -81,7 +86,18 @@ func (p *postgres) ensure() error {
 		_ = os.RemoveAll(p.data)
 		return e
 	}
-	conf := fmt.Sprintf(`
+	f, e := os.OpenFile(filepath.Join(p.data, "postgresql.conf"), os.O_APPEND|os.O_WRONLY, 0o600)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	_, e = f.WriteString(p.config())
+	return e
+}
+
+// config is the server configuration Serk Finance relies on (appended to initdb's defaults).
+func (p *postgres) config() string {
+	return fmt.Sprintf(`
 # Serk Finance office installation
 listen_addresses = '127.0.0.1'
 port = %d
@@ -92,15 +108,15 @@ unix_socket_directories = ''
 logging_collector = off
 wal_level = replica
 max_wal_size = 512MB
+max_replication_slots = 4
 `, p.port)
-	f, e := os.OpenFile(filepath.Join(p.data, "postgresql.conf"), os.O_APPEND|os.O_WRONLY, 0o600)
-	if e != nil {
-		return e
-	}
-	defer f.Close()
-	_, e = f.WriteString(conf)
-	return e
 }
+
+// hbaConfig allows password logins from this computer only.
+const hbaConfig = `# Serk Finance: local password logins only
+host all all 127.0.0.1/32 scram-sha-256
+host all all ::1/128 scram-sha-256
+`
 
 func (p *postgres) running() bool {
 	c, e := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(p.port), 500*time.Millisecond)

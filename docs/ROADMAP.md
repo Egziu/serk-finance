@@ -17,9 +17,15 @@ Native PostgreSQL and browser verification, security and IFRS review fixes, year
 
 Remaining gates outside this workspace: container build and scan, restore/PITR on the target host, capacity test, and independent accountant and security sign-off.
 
-## Accountant test release (0.3.0-rc1, this release)
+## Accountant test release (0.3.0-rc1)
 
 Per-company module switches enforced in the database, permission-aware navigation, Ethiopian fiscal year, self-service password change, single-service Railway deployment and a seeded Ethiopian demo workspace with seven role-based users. Accountant findings from this release feed Phase 2.
+
+## AI assistant, office installers and accountant fixes (0.4.0-rc1, this release)
+
+- **First accountant round fixed:** errors name the field, account pickers filter by type, control accounts serve one purpose, module journals link to their source document, receivable write-off template, people shown by name.
+- **First slice of Phase 4:** the AI assistant, drafts only (see Phase 4 below for what is done and what remains).
+- **First slice of Phase 5:** single-office installers for Windows and Linux with a bundled database, setup wizard, backups and restore (see Phase 5).
 
 ## Phase 2 — Ethiopia localisation (next)
 
@@ -75,31 +81,44 @@ All rates come from versioned, dual-approved policy tables (as payroll policies 
 
 The design principle is that the assistant is a preparer, never an approver.
 
-- **Read access.** Read-only tools over the reports the user may already see: trial balance, general ledger, aging, VAT report and integrity. Authorisation is enforced by the same database session and RLS. The assistant never gets broader access than the signed-in user.
-- **Write access.** Write tools only create DRAFT journals, invoices, bills and adjustments, with a stated rationale and source references. The audit trail records `prepared_by_assistant` together with the prompting user.
-- **Tasks.**
-  - Explain a report line ("why did gross margin fall?").
+**Done in 0.4.0-rc1** (`docs/AI_ARCHITECTURE.md`):
+
+- 14 read and review tools: overview, trial balance, balance sheet, income statement, account ledger, accounts, journals, documents, VAT report, parties, items, integrity and an audit-style `review_entries`.
+- 3 draft tools for manual journals, sales invoices and supplier bills. Nothing is submitted, approved, posted, paid, reversed or voided by the AI.
+- Every tool runs as the signed-in user under the same RLS, permissions and module switches. The assistant needs `ai.use` and the AI assistant module switch.
+- Drafts carry "Prepared by the AI assistant at the user's request: …" in their reason, under the user's own name in the audit trail.
+- Provider-agnostic: the Claude API (default) or any OpenAI-compatible server, per company or server-wide, and it can be switched off per company.
+
+**Remaining:**
+
+- **Read access.** Aging reports once AR/AP allocation exists (Phase 3).
+- **Write access.** Add DRAFT adjustments, and source references on drafts. Record a structured `prepared_by_assistant` marker in the audit trail, in addition to today's reason prefix.
+- **Tasks.** Explaining report lines works today from the read tools, and `review_entries` already flags manual revenue entries, round or large amounts, weekend dates and stale drafts. Still to do:
   - Draft a VAT remittance from the VAT report.
-  - Find anomalies: duplicate bills, unusual amounts, round-sum journals, postings outside working hours.
+  - Find duplicate bills and postings outside working hours.
   - Suggest bank-reconciliation matches.
   - Summarise period-end blockers.
-- **Safety.**
-  - Prompts and outputs are logged per company.
-  - No customer data is used for training; data processing terms are agreed with the model provider.
-  - Every draft goes through the existing independent approval.
-  - Evaluation suites cover arithmetic, permission boundaries and refusal to approve.
-- **Provider.** Provider-agnostic interface. The first implementation uses the Claude API (Anthropic) with tool use, configurable per tenant, and can be disabled entirely.
+- **Safety.** Every draft already goes through the existing independent approval, and tests cover permission boundaries and draft-only behaviour. Still to do:
+  - Log prompts and outputs per company.
+  - Agree data-processing terms with each model provider, including no training on customer data (an organisational step before real use).
+  - Evaluation suites for arithmetic and answer quality.
+- **Answers.** Cite record IDs and drill-through links for each figure.
+- **Later:** OCR of supplier documents, forecasting and anomaly alerts (see `docs/AI_ARCHITECTURE.md`).
 
 ## Phase 5 — Offline-first office server and sync
 
-- **Local server.** A local server (same Go binary and PostgreSQL) runs per office or branch. It is the system of record for documents it creates while offline.
+**Done in 0.4.0-rc1** (`docs/OFFICE_INSTALL.md`): a standalone office server for one company. Windows and Linux installers bundle PostgreSQL 17 on 127.0.0.1 and run it as a service, with a first-run setup wizard, an optional practice workspace, online `.zip` backups, safe restore and password reset. The Linux `.deb` is verified; the Windows installer still needs a run on real Windows.
+
+**Remaining:**
+
+- **Local server as part of a network.** An office or branch server that is the system of record for documents it creates while offline.
 - **Sync.**
   - Synchronisation through the existing transactional outbox with idempotent replay. The audit chain is preserved per company, and conflicts are resolved by document ownership.
   - Numbering ranges are allocated per office so tax invoices stay sequential offline.
   - Period close and year-end only run while connected.
 - **Resilience:**
   - Bounded offline window.
-  - Encrypted local backups.
+  - Encrypted and scheduled local backups (today's backups are unencrypted and started by hand).
   - Health reporting to the cloud.
 
 ## Phase 6 — Scale and certification
@@ -119,4 +138,5 @@ The design principle is that the assistant is a preparer, never an approver.
 ## Known design limits carried forward
 
 - **Authentication role (`serk_auth`).** It can create a session for any user once a password has been verified in the API process. The database cannot verify argon2id or TOTP itself. Treat the `serk_auth_login` credential as a top-tier secret, restrict it by network, and rotate it. A separate verifier service (Phase 6) would remove this trust.
+- **Office installation over plain HTTP.** The office server is reached over HTTP inside the office. Use it only on a trusted network, or put it behind an HTTPS proxy or VPN. The Windows installer is not code-signed yet.
 - **Sub-ledger vs ledger.** Receivable and payable write-offs reduce the control account but do not yet allocate against individual documents (Phase 3, allocation).

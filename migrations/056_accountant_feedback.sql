@@ -199,3 +199,24 @@ CREATE OR REPLACE FUNCTION ledger.get_journal(p_id uuid) RETURNS jsonb LANGUAGE 
  END $$;
 
 REVOKE ALL ON FUNCTION finance.require_account(text,text[],text),finance.reserved_accounts(),finance.validate_item_accounts(jsonb),ledger.journal_source(uuid) FROM PUBLIC;
+
+-- 5. Control trails show colleagues by name: the members of the current company, display names
+--    only (no email or contact data).
+CREATE OR REPLACE FUNCTION ledger.reference_data() RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog,ledger,organization,security,pg_temp AS $$
+BEGIN
+ IF NOT security.has('ledger.read') THEN RAISE EXCEPTION 'permission_denied' USING ERRCODE='42501'; END IF;
+ RETURN jsonb_build_object('accounts',coalesce((SELECT jsonb_agg(to_jsonb(a) ORDER BY code) FROM ledger.accounts a),'[]'::jsonb),
+ 'branches',coalesce((SELECT jsonb_agg(to_jsonb(b) ORDER BY code) FROM organization.branches b),'[]'::jsonb),
+ 'periods',coalesce((SELECT jsonb_agg(to_jsonb(p) ORDER BY start_date) FROM ledger.periods p),'[]'::jsonb),
+ 'dimensions',coalesce((SELECT jsonb_agg(to_jsonb(d) ORDER BY kind,code) FROM ledger.dimensions d),'[]'::jsonb),
+ 'currencies',(SELECT jsonb_agg(to_jsonb(c) ORDER BY code) FROM organization.currencies c),
+ 'permissions',jsonb_build_object('create',security.has('journal.create'),'audit',security.has('audit.read'),
+  'close',security.can('period.close') AND security.can('ledger.read'),
+  'users',security.can('user.manage'),'roles',security.can('role.manage'),'configure',security.can('configuration.manage')),
+ 'held',to_jsonb(security.held_permissions()),
+ 'features',(SELECT jsonb_object_agg(f.code,NOT (f.code=ANY(security.disabled_features()))) FROM organization.features f),
+ 'people',coalesce((SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.display_name) ORDER BY u.display_name)
+  FROM security.users u WHERE u.tenant_id=security.tenant()
+  AND EXISTS(SELECT FROM security.memberships m WHERE m.user_id=u.id AND m.company_id=security.company())),'[]'::jsonb));
+END $$;

@@ -36,6 +36,7 @@ export type Dimension = {
 };
 export type Reference = {
   accounts: Account[];
+  people?: { id: string; name: string }[];
   branches: { id: string; code: string; name: string; active?: boolean }[];
   periods: Period[];
   dimensions?: Dimension[];

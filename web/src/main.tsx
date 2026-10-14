@@ -21,7 +21,7 @@ const JournalsPage = lazy(() => import("./pages/JournalsPage").then(m=>({default
 import { Login } from "./Login";
 import { JournalForm } from "./JournalForm";
 import { ProfileModal, clearIdentity, loadIdentity, saveIdentity, type Identity } from "./Profile";
-import { Icon, today } from "./shared";
+import { Icon, setPeople, today } from "./shared";
 import React, { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -183,7 +183,7 @@ function App() {
     setError("");
     api<Reference>("/accounting/reference", company)
       .then((r) => {
-        if (active) setRef(r);
+        if (active) { setPeople(r.people); setRef(r); }
       })
       .catch((e) => { if (active) report(e); });
     return () => {

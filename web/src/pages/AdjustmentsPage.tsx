@@ -19,7 +19,14 @@ const purposes: [string, string, string][] = [
   ["INVENTORY_ADJUSTMENT", "Inventory adjustment", "Stock count differences and write-downs to net realisable value (IAS 2). Quantity and value move together."],
   ["OPENING_BALANCE", "Opening balances", "Enter receivable, payable and tax balances when you start using the system."],
 ];
-const blank = (): Line => ({ account_id: "", debit: "", credit: "", description: "", item_id: "", quantity_delta: "" });
+const blank = (account_id = ""): Line => ({ account_id, debit: "", credit: "", description: "", item_id: "", quantity_delta: "" });
+// Control purposes each kind may touch (finance.adjustment_controls in the database).
+const allowedControls: Record<string, string[]> = {
+  TAX_SETTLEMENT: ["output_tax", "input_tax"], PAYROLL_SETTLEMENT: ["payroll_payable", "payroll_tax", "pension_payable"],
+  RECEIVABLE_ADJUSTMENT: ["receivable"], PAYABLE_ADJUSTMENT: ["payable"], INVENTORY_ADJUSTMENT: ["inventory"],
+  OPENING_BALANCE: ["receivable", "payable", "output_tax", "input_tax", "payroll_payable", "payroll_tax", "pension_payable"],
+};
+type Settings = { accounts?: Record<string, any>; reserved_accounts?: { purpose: string; account_id: string }[] };
 
 type Props = { company: string; csrf: string; reference: Reference | null; me: Session; places: number; currency: string };
 
@@ -37,7 +44,33 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
-  const accounts = (reference?.accounts ?? []).filter((a) => a.active && a.posting_allowed);
+  const [settings, setSettings] = useState<Settings>({});
+  const usable = (reference?.accounts ?? []).filter((a) => a.active && a.posting_allowed);
+  // Only accounts this kind of adjustment may use: ordinary accounts plus its own control accounts.
+  const accounts = useMemo(() => {
+    const allowed = allowedControls[purpose] ?? [];
+    const reserved = (settings.reserved_accounts ?? []).filter((r) => r.purpose !== "cash");
+    return usable.filter((a) => {
+      const purposes = reserved.filter((r) => r.account_id === a.id).map((r) => r.purpose);
+      return purposes.length ? purposes.some((p) => allowed.includes(p)) : !a.control_account;
+    }).sort((a, b) => a.code.localeCompare(b.code));
+  }, [usable, settings, purpose]);
+  // A starting layout for each kind; the preparer still enters amounts and may change accounts.
+  function template(kind: string): Line[] {
+    const m = settings.accounts ?? {}, cash = (m.cash_accounts ?? [])[0] ?? "";
+    const find = (re: RegExp, types: string[]) => usable.find((a) => types.includes(a.type) && re.test(a.name))?.id ?? "";
+    const inventory = items.find((i) => i.type === "PRODUCT" && i.asset_account_id)?.asset_account_id ?? "";
+    switch (kind) {
+      case "TAX_SETTLEMENT": return [blank(m.output_tax), blank(m.input_tax), blank(cash)];
+      case "PAYROLL_SETTLEMENT": return [blank(m.payroll_payable), blank(m.payroll_tax), blank(m.pension_payable), blank(cash)];
+      case "RECEIVABLE_ADJUSTMENT": return [blank(find(/impair|bad debt|doubtful|credit loss/i, ["EXPENSE", "OTHER_EXPENSE"])), blank(m.receivable)];
+      case "PAYABLE_ADJUSTMENT": return [blank(m.payable), blank(find(/other income/i, ["OTHER_INCOME", "REVENUE"]))];
+      case "INVENTORY_ADJUSTMENT": return [blank(find(/write-down|shrink|inventory loss|stock loss/i, ["COST_OF_SALES", "EXPENSE", "OTHER_EXPENSE"])), blank(inventory)];
+      case "OPENING_BALANCE": return [blank(m.receivable), blank(m.opening_equity)];
+      default: return [blank(), blank()];
+    }
+  }
+  const choose = (kind: string) => { setPurpose(kind); setLines(template(kind)); };
   const inventoryAccounts = useMemo(() => new Set(items.filter((i) => i.type === "PRODUCT" && i.asset_account_id).map((i) => i.asset_account_id as string)), [items]);
 
   async function load() {
@@ -50,6 +83,11 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
       setItems(await api<Item[]>("/inventory/items", company));
     } catch {
       setItems([]);
+    }
+    try {
+      setSettings(await api<Settings>("/finance/settings", company));
+    } catch {
+      setSettings({});
     }
   }
   useEffect(() => {
@@ -117,7 +155,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
     });
     await post("/finance/adjustments/create", { purpose, branch_id: branch, accounting_date: date, number, description, reason, lines: payload });
     setOpen(false);
-    setLines([blank(), blank()]);
+    setLines(template(purpose));
     setNumber("");
     setDescription("");
     setReason("");
@@ -136,7 +174,7 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
         </div>
         <div className="toolbar">
           <button className="secondary" onClick={() => void load()} disabled={busy}><RefreshCw size={16} />Refresh</button>
-          <button className="primary" onClick={() => setOpen(!open)} disabled={busy}><Plus size={16} />New adjustment</button>
+          <button className="primary" onClick={() => { if (!open) setLines(template(purpose)); setOpen(!open); }} disabled={busy}><Plus size={16} />New adjustment</button>
         </div>
       </div>
       {error && <div className="error" role="alert">{error}</div>}
@@ -145,9 +183,9 @@ export function AdjustmentsPage({ company, csrf, reference, me, places, currency
       {open && (
         <section className="panel" aria-label="New adjustment">
           <div className="panel-heading"><h2>New adjustment</h2></div>
-          <p className="muted panel-note">{purposes.find((p) => p[0] === purpose)?.[2]}</p>
+          <p className="muted panel-note">{purposes.find((p) => p[0] === purpose)?.[2]} The usual accounts are filled in; enter the amounts and check each line.</p>
           <div className="form-grid">
-            <label>Kind<select aria-label="Adjustment kind" value={purpose} onChange={(e) => setPurpose(e.target.value)}>{purposes.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+            <label>Kind<select aria-label="Adjustment kind" value={purpose} onChange={(e) => choose(e.target.value)}>{purposes.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
             <label>Branch<select aria-label="Branch" value={branch} onChange={(e) => setBranch(e.target.value)}>{(reference?.branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}</select></label>
             <label>Accounting date<input aria-label="Accounting date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
             <label>Reference number<input aria-label="Reference number" value={number} maxLength={100} onChange={(e) => setNumber(e.target.value)} placeholder="e.g. VAT-2026-09" /></label>

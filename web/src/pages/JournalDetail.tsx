@@ -44,6 +44,13 @@ export function JournalDetail({
         void: !["POSTED", "VOIDED"].includes(selected.state),
       }[a],
   );
+  const source = selected.source_document;
+  const sourceView: Record<string, [string, string]> = {
+    INVOICE: ["sales", "sales invoice"], BILL: ["purchases", "supplier bill"], PAYROLL: ["payroll", "payroll run"],
+    OPENING: ["inventory", "stock opening"], ADJUSTMENT: ["adjustments", "adjustment"], YEAR_CLOSE: ["period-end", "year-end close"],
+  };
+  const roleText: Record<string, string> = { payment: "the payment of ", reversal: "the reversal of ", payment_reversal: "the payment reversal of " };
+  const moduleEntry = selected.source_type === "SYSTEM" || selected.source_type === "CLOSING" || (selected.source_type === "REVERSAL" && !!source);
   const ownSubmitted = selected.state === "SUBMITTED" && selected.created_by === me.user_id;
   const trail: [string, string | null | undefined][] = [
     ["Prepared by", selected.created_by],
@@ -177,6 +184,15 @@ export function JournalDetail({
               <button className="report-link" disabled={locked} onClick={() => openJournal(selected.reversed_from!)}>
                 the original journal
               </button>
+            </p>
+          )}
+          {moduleEntry && (
+            <p className="secondary-line" role="note">
+              <ShieldCheck size={14} />{" "}
+              {source && sourceView[source.kind]
+                ? <>Posted by {roleText[source.role] ?? ""}{sourceView[source.kind][1]} <strong>{source.number}</strong>. Approve, reverse or void it from that screen.{" "}
+                    <button className="report-link" disabled={locked} onClick={() => navigate(sourceView[source.kind][0])}>Open {sourceView[source.kind][1]}s</button></>
+                : <>Posted by a module workflow (invoice, bill, payroll, adjustment or year-end close). Change it from that screen.</>}
             </p>
           )}
           {ownSubmitted && (

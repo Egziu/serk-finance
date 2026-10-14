@@ -16,6 +16,9 @@ import (
 
 var appCode = regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
 
+// fieldKey matches the field names application errors may carry in DETAIL (never data).
+var fieldKey = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
+
 type problem struct {
 	status int
 	code   string
@@ -34,7 +37,7 @@ func write(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, e error) {
-	status, code := 500, "internal_error"
+	status, code, field := 500, "internal_error", ""
 	var p *problem
 	var pg *pgconn.PgError
 	if errors.As(e, &p) {
@@ -73,6 +76,9 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, e error) {
 		// constraint names, values and other internals are not disclosed.
 		if appCode.MatchString(pg.Message) {
 			code = pg.Message
+			if fieldKey.MatchString(pg.Detail) {
+				field = pg.Detail
+			}
 		}
 	} else if errors.Is(e, accounting.ErrInvalid) {
 		status, code = 422, "invalid_journal"
@@ -83,7 +89,11 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, e error) {
 		s.failures++
 		s.mu.Unlock()
 	}
-	write(w, status, map[string]any{"error": map[string]any{"code": code, "message": strings.ReplaceAll(code, "_", " "), "request_id": requestID(r)}})
+	body := map[string]any{"code": code, "message": strings.ReplaceAll(code, "_", " "), "request_id": requestID(r)}
+	if field != "" {
+		body["field"] = field
+	}
+	write(w, status, map[string]any{"error": body})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {

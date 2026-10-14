@@ -63,6 +63,7 @@ export type Journal = {
   branch_id?: string;
   period_id?: string;
   source_type?: string;
+  source_document?: { kind: string; id: string; number: string; role: string } | null;
   sequence_no?: number;
   created_by?: string;
   submitted_by?: string | null;

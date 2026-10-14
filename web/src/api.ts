@@ -59,6 +59,9 @@ const messages: Record<string, string> = {
   parent_has_postings: "This account already has entries, so it cannot become a header account.",
   statement_class_required: "Choose whether this asset or liability is current or non-current.",
   invalid_account_mapping: "One of the selected accounts cannot be used for this setting.",
+  account_type_not_allowed: "This account is the wrong kind for this field.",
+  account_reserved: "This account is already reserved for another purpose (cash, receivables, payables, VAT, payroll or inventory).",
+  account_required: "Choose an account for this field.",
   cash_account_configuration_required: "Choose at least one bank or cash account in finance settings.",
   item_definition_in_use: "This item is already used, so its accounts cannot change.",
   dimension_definition_in_use: "This dimension is already used and cannot change.",
@@ -127,12 +130,32 @@ const messages: Record<string, string> = {
   chart_preflight_cycle_or_depth: "The chart of accounts import would create a loop.",
   chart_preflight_invalid_parent: "The chart of accounts import has an invalid parent.",
 };
+// Field names the API may attach to an error, in the words used on screen.
+export const fieldLabels: Record<string, string> = {
+  income_account_id: "Revenue account",
+  expense_account_id: "Expense / cost of sales account",
+  asset_account_id: "Inventory asset account",
+  cash_accounts: "Bank and cash posting accounts",
+  receivable: "Accounts receivable",
+  payable: "Accounts payable",
+  output_tax: "Output VAT payable",
+  input_tax: "Input VAT recoverable",
+  opening_equity: "Opening balance equity",
+  retained_earnings: "Retained earnings",
+  payroll_expense: "Salary expense",
+  payroll_payable: "Salary payable",
+  payroll_tax: "Payroll tax payable",
+  pension_expense: "Employer pension expense",
+  pension_payable: "Pension payable",
+};
 export class APIError extends Error {
   constructor(
     public status: number,
     public code: string,
+    public field?: string,
   ) {
-    super(messages[code] ?? code.replaceAll("_", " "));
+    const text = messages[code] ?? code.replaceAll("_", " ");
+    super(field && fieldLabels[field] ? `${fieldLabels[field]}: ${text}` : text);
   }
 }
 export async function api<T>(
@@ -159,7 +182,7 @@ export async function api<T>(
   } catch {
     throw new APIError(r.status, r.status >= 500 ? "retry_later" : "request_failed");
   }
-  if (!r.ok) throw new APIError(r.status, data.error?.code ?? "request_failed");
+  if (!r.ok) throw new APIError(r.status, data.error?.code ?? "request_failed", data.error?.field);
   return data;
 }
 export function minor(value: string, places: number): string {

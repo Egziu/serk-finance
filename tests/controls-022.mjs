@@ -257,6 +257,43 @@ try{
   assert.equal(p.length,13);assert.deepEqual([p[2].name,p[2].s,p[2].e],['03 Pagume','2027-09-06','2027-09-11']);assert.deepEqual([p[12].name,p[12].e],['13 Sene','2028-07-07']);
  });
 
+ // ---------------------------------------------------------------- accountant feedback (0.3.1)
+ const field=async(fn,code,detail)=>assert.rejects(fn,e=>{assert.equal(e.message,code,e.message);assert.equal(e.detail,detail);return true;});
+ await check('AF1 an item account of the wrong kind is refused and the field is named',async()=>{
+  const base={type:'PRODUCT',name:'Mobile AF1',sku:'AF1',unit_price:'5000000',cost_price:'4000000',income_account_id:f.accounts['4000'],expense_account_id:m.a['5001'],asset_account_id:m.a['1400']};
+  await field(()=>m.master('ITEM',{...base,income_account_id:f.accounts['1000']}),'account_type_not_allowed','income_account_id');
+  await field(()=>m.master('ITEM',{...base,expense_account_id:f.accounts['1000']}),'account_type_not_allowed','expense_account_id');
+  await field(()=>m.master('ITEM',{...base,asset_account_id:m.a['2001']}),'account_type_not_allowed','asset_account_id');
+  await field(()=>m.master('ITEM',{...base,asset_account_id:f.accounts['1000']}),'account_reserved','asset_account_id');
+  await field(()=>m.master('ITEM',{...base,asset_account_id:m.a['1201']}),'account_reserved','asset_account_id');
+  await field(()=>m.master('ITEM',{...base,asset_account_id:''}),'account_required','asset_account_id');
+  assert.ok((await m.master('ITEM',base)).id);
+ });
+ await check('AF2 account mappings name the wrong field, and a remapped unused control account is released',async()=>{
+  const cfg=p=>m.call('maker','SELECT finance.configure($1::jsonb) AS value',[JSON.stringify(p)]);
+  await field(()=>cfg({...m.mappings,payroll_expense:m.a['2101']}),'account_type_not_allowed','payroll_expense');
+  await field(()=>cfg({...m.mappings,receivable:f.accounts['1000']}),'account_reserved','receivable');
+  await field(()=>cfg({...m.mappings,cash_accounts:[f.accounts['1000'],m.a['1400']]}),'account_reserved','cash_accounts');
+  await field(()=>cfg({...m.mappings,payable:m.a['2101']}),'account_reserved','payable');
+  const spare=randomUUID();
+  await db.query("INSERT INTO ledger.accounts(id,tenant_id,company_id,code,name,type,normal_balance,reporting_category,statement_class) VALUES($1,$2,$3,'2002','Spare payables','LIABILITY','CREDIT','LIABILITY','CURRENT')",[spare,f.tenant,f.company]);
+  const ctl=async id=>(await db.query('SELECT array_agg(purpose ORDER BY purpose) AS p FROM finance.control_accounts WHERE account_id=$1',[id])).rows[0].p;
+  await cfg({...m.mappings,payable:spare});assert.deepEqual(await ctl(spare),['payable']);
+  assert.deepEqual(await ctl(m.a['2001']),['payable'],'an account with entries stays controlled');
+  await cfg(m.mappings);assert.equal(await ctl(spare),null,'an unused previous mapping is released');
+  const settings=await m.call('maker','SELECT finance.get_settings() AS value');
+  assert.ok(settings.reserved_accounts.some(x=>x.account_id===m.a['1400']&&x.purpose==='inventory'));
+ });
+ await check('AF3 a module journal names its source document and offers no general-ledger reversal',async()=>{
+  const d=await m.post(await m.invoice('INV-AF3','1','700','2026-11-30'));
+  const j=await m.call('maker','SELECT ledger.get_journal($1) AS value',[d.journal_id]);
+  assert.deepEqual([j.source_document.kind,j.source_document.number,j.source_document.id],['INVOICE','INV-AF3',d.id]);
+  assert.equal(j.permissions.reverse,false);assert.equal(j.permissions.void,false);
+  const manual=await f.command('maker','c022:af3-manual','create',f.payload('1000','2026-09-24'));
+  const mj=await m.call('maker','SELECT ledger.get_journal($1) AS value',[manual.id]);
+  assert.equal(mj.source_document,null);assert.equal(mj.permissions.void,true);
+ });
+
  // ---------------------------------------------------------------- year end (separate tenant)
  const g=await fixture(db,'c022-year');
  const re=randomUUID();
